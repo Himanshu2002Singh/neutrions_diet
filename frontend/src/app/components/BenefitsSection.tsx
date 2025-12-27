@@ -35,7 +35,7 @@ export function BenefitsSection() {
     <section className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 mb-12 items-center">
       <div className="relative order-2 lg:order-1">
         <img
-          src="/images/bde9ae6778ea626ec7276b714904286a9077de71.png"
+          src="/images/whyNutrition.jpg"
           alt="Personalized health benefits"
           className="w-full h-[300px] lg:h-[500px] object-cover rounded-2xl"
         />

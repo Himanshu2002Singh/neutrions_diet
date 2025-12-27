@@ -217,7 +217,7 @@ export function Diet_Generator({ bmiCalculation, medicalConditions = '' }: Diet_
                   onClick={() => {
                     // Generate PDF or text version
                     const dietText = `
-NEUTRION DIET PLAN
+NUTREAZY DIET PLAN
 
 BMI: ${bmiCalculation.bmi} (${bmiCalculation.category})
 Daily Calories: ${dietRecommendation.dailyCalories}
@@ -246,7 +246,7 @@ Recommended Foods: ${dietRecommendation.foods.join(', ')}
                   onClick={() => {
                     if (navigator.share) {
                       navigator.share({
-                        title: 'My Neutrion Diet Plan',
+                        title: 'My Nutreazy Diet Plan',
                         text: `Check out my personalized diet plan with ${dietRecommendation.dailyCalories} calories per day!`,
                         url: window.location.href
                       });

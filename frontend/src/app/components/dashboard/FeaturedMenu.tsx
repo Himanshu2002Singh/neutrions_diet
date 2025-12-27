@@ -3,7 +3,7 @@ import { Star, ChefHat, Clock, BarChart3, List, MoreVertical } from 'lucide-reac
 
 
 
-const featuredImage = '/images/bde9ae6778ea626ec7276b714904286a9077de71.png';
+const featuredImage = '/images/recipe.png';
 
 
 export function FeaturedMenu() {

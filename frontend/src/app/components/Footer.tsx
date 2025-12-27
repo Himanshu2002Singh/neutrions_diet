@@ -6,7 +6,11 @@ export function Footer() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
         {/* Company Info */}
         <div className="space-y-4">
-          <h3 className="text-xl lg:text-2xl font-bold">NEUTRION DIET</h3>
+          <img
+  src="/images/logo.png"
+  alt="NUTREAZY Logo"
+  className="h-8 lg:h-10 w-auto"
+/>
           <p className="text-sm lg:text-base text-gray-700 leading-relaxed">
             Your personal AI-powered nutrition partner. Get personalized diet plans, track progress, and chat with AI coach Ria for better health.
           </p>
