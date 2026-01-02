@@ -15,11 +15,10 @@ interface HeaderProps {
   user: User | null;
   onLogout: () => void;
   onDashboardClick: () => void;
-  onCheckLogin: () => boolean;
 }
 
 
-export function Header({ onLoginClick, onHealthProfileClick, user, onLogout, onDashboardClick, onCheckLogin }: HeaderProps) {
+export function Header({ onLoginClick, onHealthProfileClick, user, onLogout, onDashboardClick }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);

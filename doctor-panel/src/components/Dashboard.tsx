@@ -5,7 +5,7 @@ import React from 'react';
 import { Users, Activity, Calendar, AlertCircle } from 'lucide-react';
 import { dashboardStats } from '../data/mock';
 
-const Dashboard: React.FC = () => {
+function Dashboard() {
   const stats = [
     { label: 'Total Patients', value: dashboardStats.totalPatients, icon: Users, color: 'bg-blue-500' },
     { label: 'Active Patients', value: dashboardStats.activePatients, icon: Activity, color: 'bg-green-500' },

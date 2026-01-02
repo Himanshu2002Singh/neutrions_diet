@@ -1,6 +1,42 @@
-// ============================================
-// FILE: src/types/index.ts
-// ============================================
+// Auth types for doctor-panel
+
+export interface AdminUser {
+  id: number;
+  name: string;
+  email: string;
+  role: 'admin' | 'member';
+  category: 'doctor' | 'dietitian' | null;
+  isActive: boolean;
+}
+
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  success: boolean;
+  message: string;
+  data: {
+    admin: AdminUser;
+    token: string;
+  };
+}
+
+export interface AuthState {
+  isAuthenticated: boolean;
+  user: AdminUser | null;
+  token: string | null;
+  loading: boolean;
+}
+
+export interface AuthContextType extends AuthState {
+  login: (credentials: LoginCredentials) => Promise<boolean>;
+  logout: () => void;
+  error: string | null;
+}
+
+// User types for dashboard components
 export interface User {
   id: number;
   name: string;
@@ -15,19 +51,11 @@ export interface User {
   dietPlan: string;
 }
 
-export interface ProgressRecord {
+export interface ProgressData {
+  userId: number;
   date: string;
-  weight: string;
-  bp: string;
-  bloodSugar?: string;
+  weight: number;
+  bmi: number;
   notes: string;
-  steps?: number;
-  calories?: number;
 }
 
-export interface DashboardStats {
-  totalPatients: number;
-  activePatients: number;
-  appointments: number;
-  criticalCases: number;
-}

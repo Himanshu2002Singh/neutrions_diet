@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -6,9 +6,9 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
-import { Separator } from './ui/separator';
 import { Scale, Activity, Heart, AlertCircle } from 'lucide-react';
 import { calculateAllHealthMetrics } from '../../utils/healthCalculations';
+import { apiService, type HealthFormData } from '../../services/api';
 import type { BMICalculation } from '../../types/health';
 
 interface HealthFormModalProps {
@@ -40,6 +40,31 @@ export function HealthFormModal({ isOpen, onClose, onSubmit, purpose = 'diet' }:
 
   const [bmiCalculation, setBmiCalculation] = useState<BMICalculation | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [userId, setUserId] = useState<number | null>(null);
+
+  // Get userId from localStorage on component mount
+  useEffect(() => {
+    const getUserData = () => {
+      // Get userId from localStorage (set by googleAuth.ts after login)
+      const storedUserId = localStorage.getItem('userId');
+      
+      if (storedUserId) {
+        setUserId(parseInt(storedUserId, 10));
+        console.log('✅ Found userId:', storedUserId);
+      } else {
+        // No userId found - user is not logged in
+        console.log('❌ No userId found - user not logged in');
+        setUserId(null);
+      }
+    };
+
+    if (isOpen) {
+      getUserData();
+    }
+  }, [isOpen]);
 
   const calculateBMIData = () => {
     const weight = parseFloat(formData.weight);
@@ -96,36 +121,74 @@ export function HealthFormModal({ isOpen, onClose, onSubmit, purpose = 'diet' }:
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateForm()) return;
 
     const bmi = calculateBMIData();
     if (!bmi) return;
 
-    onSubmit({
-      weight: parseFloat(formData.weight),
-      height: parseFloat(formData.height),
-      age: parseInt(formData.age),
-      gender: formData.gender,
-      activityLevel: formData.activityLevel,
-      medicalConditions: formData.medicalConditions,
-      goals: formData.goals,
-      bmiCalculation: bmi
-    });
+    // Reset states
+    setIsLoading(true);
+    setSubmitError(null);
+    setSubmitSuccess(false);
 
-    // Reset form
-    setFormData({
-      weight: '',
-      height: '',
-      age: '',
-      gender: '',
-      activityLevel: '',
-      medicalConditions: '',
-      goals: ''
-    });
-    setBmiCalculation(null);
-    setErrors({});
-    onClose();
+    try {
+      // Check if we have a valid userId
+      if (!userId) {
+        throw new Error('User ID not found. Please log in first.');
+      }
+
+      // Prepare form data for API
+      // Note: User info (name, email, phone) comes from users table via JOIN
+      // Only health-related data is submitted here
+      const healthFormData: HealthFormData = {
+        weight: parseFloat(formData.weight),
+        height: parseFloat(formData.height),
+        age: parseInt(formData.age),
+        gender: formData.gender,
+        activityLevel: formData.activityLevel,
+        medicalConditions: formData.medicalConditions,
+        goals: formData.goals
+      };
+
+      console.log('Submitting health form to backend:', { userId, healthFormData });
+      
+      // Submit to backend
+      const response = await apiService.submitHealthForm(userId, healthFormData);
+
+      if (response.success) {
+        console.log('Health form submitted successfully:', response);
+        setSubmitSuccess(true);
+        
+        // Also call the original onSubmit for local processing
+        onSubmit({
+          ...healthFormData,
+          bmiCalculation: bmi
+        });
+
+        // Reset form after successful submission
+        setTimeout(() => {
+          setFormData({
+            weight: '',
+            height: '',
+            age: '',
+            gender: '',
+            activityLevel: '',
+            medicalConditions: '',
+            goals: ''
+          });
+          setBmiCalculation(null);
+          setErrors({});
+          setSubmitSuccess(false);
+          onClose();
+        }, 2000); // Show success for 2 seconds before closing
+      }
+    } catch (error) {
+      console.error('Error submitting health form:', error);
+      setSubmitError(error instanceof Error ? error.message : 'Failed to submit health form');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleClose = () => {
@@ -140,6 +203,9 @@ export function HealthFormModal({ isOpen, onClose, onSubmit, purpose = 'diet' }:
     });
     setBmiCalculation(null);
     setErrors({});
+    setIsLoading(false);
+    setSubmitError(null);
+    setSubmitSuccess(false);
     onClose();
   };
 
@@ -313,13 +379,52 @@ export function HealthFormModal({ isOpen, onClose, onSubmit, purpose = 'diet' }:
 
           {/* Action Buttons */}
           <div className="flex gap-3">
-            <Button variant="outline" onClick={handleClose} className="flex-1">
+            <Button variant="outline" onClick={handleClose} className="flex-1" disabled={isLoading}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit} className="flex-1 bg-[#C5E17A] text-black hover:bg-[#B5D170]">
-              Generate My Diet Plan
+            <Button 
+              onClick={handleSubmit} 
+              className="flex-1 bg-[#C5E17A] text-black hover:bg-[#B5D170] disabled:opacity-50"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Submitting...' : 'Generate My Diet Plan'}
             </Button>
           </div>
+
+          {/* Status Messages */}
+          {submitSuccess && (
+            <div className="bg-green-50 border border-green-200 rounded-md p-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm font-medium text-green-800">
+                    Success! Your health profile has been submitted to the backend.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {submitError && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm font-medium text-red-800">
+                    {submitError}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

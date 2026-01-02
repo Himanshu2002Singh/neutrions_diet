@@ -5,6 +5,7 @@ import AddDietician from './components/dieticians/AddDietician';
 import AssignDietician from './components/dieticians/AssignDietician';
 import CheckProgress from './components/progress/CheckProgress';
 import AllUsers from './components/users/AllUsers';
+import ReferralManagement from './components/referrals/ReferralManagement';
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
             <Route path="/assign-dietician" element={<AssignDietician />} />
             <Route path="/check-progress" element={<CheckProgress />} />
             <Route path="/all-users" element={<AllUsers />} />
+            <Route path="/referrals" element={<ReferralManagement />} />
           </Routes>
         </main>
       </div>

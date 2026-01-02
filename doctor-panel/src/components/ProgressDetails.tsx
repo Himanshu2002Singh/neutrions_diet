@@ -7,7 +7,7 @@ interface ProgressDetailViewProps {
   onBack: () => void;
 }
 
-const ProgressDetailView: React.FC<ProgressDetailViewProps> = ({ userId, onBack }) => {
+function ProgressDetailView({ userId, onBack }: ProgressDetailViewProps) {
   const [filter, setFilter] = useState<'day' | 'week' | 'month'>('week');
   
   const user = mockUsers.find(u => u.id === userId);

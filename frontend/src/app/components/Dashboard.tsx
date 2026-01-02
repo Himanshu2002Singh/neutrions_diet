@@ -12,16 +12,41 @@ import { Health_Profile } from './dashboard/Health_Profile';
 import { WorkoutPlans } from './dashboard/WorkoutPlans';
 import { BMICalculation } from '../../types/health';
 
+interface User {
+  name: string;
+  email: string;
+  avatar: string;
+}
+
 interface DashboardProps {
   initialProfileData?: any;
   onLogout?: () => void;
   defaultView?: string;
+  user?: User | null;
 }
 
-export function Dashboard({ initialProfileData, onLogout, defaultView }: DashboardProps) {
+export function Dashboard({ initialProfileData, onLogout, defaultView, user }: DashboardProps) {
   const [activeView, setActiveView] = useState(defaultView || 'featured');
   const [bmiCalculation, setBmiCalculation] = useState<BMICalculation | null>(null);
   const [medicalConditions, setMedicalConditions] = useState('');
+  const [dashboardUser, setDashboardUser] = useState<User | null>(user || null);
+
+  // Update user state when prop changes or read from localStorage on mount
+  useEffect(() => {
+    if (user) {
+      setDashboardUser(user);
+    } else {
+      // Try to get user from localStorage
+      const savedUser = localStorage.getItem('neutrion-user');
+      if (savedUser) {
+        try {
+          setDashboardUser(JSON.parse(savedUser));
+        } catch {
+          setDashboardUser(null);
+        }
+      }
+    }
+  }, [user]);
 
   // Update active view when defaultView prop changes
   useEffect(() => {
@@ -162,9 +187,9 @@ export function Dashboard({ initialProfileData, onLogout, defaultView }: Dashboa
 
   return (
     <div className="bg-gray-50 min-h-screen">
-      <Sidebar activeView={activeView} onViewChange={handleViewChange} onLogout={onLogout} />
+      <Sidebar onLogout={onLogout} />
       <div className="lg:ml-64 ">
-        <DashboardHeader />
+        <DashboardHeader user={dashboardUser} />
         <main className="p-4 lg:p-8">
           {renderMainContent()}
         </main>

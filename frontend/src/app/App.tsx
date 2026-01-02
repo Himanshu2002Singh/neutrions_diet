@@ -12,8 +12,10 @@ import { Dashboard } from './components/Dashboard';
 import { Health_Profile } from './components/dashboard/Health_Profile';
 import { WorkoutPlans } from './components/dashboard/WorkoutPlans';
 import { BMI_Calculator } from './components/dashboard/BMI_Calculator';
+import Referrals from './components/dashboard/Referrals';
 import { LoginModal } from './components/LoginModal';
 import { BMICalculation } from '../types/health';
+import { googleAuthService } from '../services/googleAuth';
 
 interface User {
   name: string;
@@ -34,7 +36,47 @@ export default function App() {
     if (savedUser) {
       setUser(JSON.parse(savedUser));
     }
+
+    // Check for auth token in URL (after OAuth redirect)
+    const urlParams = new URLSearchParams(window.location.search);
+    const authSuccess = urlParams.get('auth');
+    const token = urlParams.get('token');
+
+    if (authSuccess === 'success' && token) {
+      localStorage.setItem('neutrion-auth-token', token);
+      // Clear URL params
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      // Fetch user data from backend
+      fetchUserFromToken(token);
+    }
   }, []);
+
+  const fetchUserFromToken = async (authToken: string) => {
+    try {
+      const response = await fetch('http://localhost:3002/api/auth/me', {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.data) {
+        const userData = {
+          name: data.data.name,
+          email: data.data.email,
+          avatar: data.data.avatar,
+        };
+        localStorage.setItem('neutrion-user', JSON.stringify(userData));
+        setUser(userData);
+        // Redirect to dashboard after successful login
+        navigate('/dashboard');
+      }
+    } catch (error) {
+      console.error('Failed to fetch user:', error);
+    }
+  };
 
   const handleLoginClick = () => {
     setShowLoginModal(true);
@@ -42,12 +84,15 @@ export default function App() {
 
   const handleLoginSuccess = (userData: User) => {
     setUser(userData);
+    localStorage.setItem('neutrion-user', JSON.stringify(userData));
     setShowLoginModal(false);
+    // Redirect to dashboard after successful login
+    navigate('/dashboard');
   };
 
   const handleLogout = () => {
+    googleAuthService.logout();
     setUser(null);
-    localStorage.removeItem('neutrion-user');
     navigate('/');
   };
 
@@ -217,17 +262,18 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
-      <Route path="/dashboard" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} />} />
-      <Route path="/dashboard/bmi-calculator" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} defaultView="bmi-calculator" />} />
-      <Route path="/dashboard/health-profile" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} defaultView="health-profile" />} />
-      <Route path="/dashboard/personalized-diet" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} defaultView="personalized-diet" />} />
-      <Route path="/dashboard/workout-plans" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} defaultView="workout-plans" />} />
-      <Route path="/dashboard/progress-tracking" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} defaultView="progress-tracking" />} />
-      <Route path="/dashboard/ai-coach" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} defaultView="ai-coach" />} />
-      <Route path="/dashboard/meal-planning" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} defaultView="meal-planning" />} />
-      <Route path="/dashboard/health-insights" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} defaultView="health-insights" />} />
-      <Route path="/dashboard/dietitian-support" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} defaultView="dietitian-support" />} />
-      <Route path="/dashboard/weekly-checkins" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} defaultView="weekly-checkins" />} />
+      <Route path="/dashboard" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} />} />
+      <Route path="/dashboard/referrals" element={<Referrals />} />
+      <Route path="/dashboard/bmi-calculator" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} defaultView="bmi-calculator" />} />
+      <Route path="/dashboard/health-profile" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} defaultView="health-profile" />} />
+      <Route path="/dashboard/personalized-diet" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} defaultView="personalized-diet" />} />
+      <Route path="/dashboard/workout-plans" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} defaultView="workout-plans" />} />
+      <Route path="/dashboard/progress-tracking" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} defaultView="progress-tracking" />} />
+      <Route path="/dashboard/ai-coach" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} defaultView="ai-coach" />} />
+      <Route path="/dashboard/meal-planning" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} defaultView="meal-planning" />} />
+      <Route path="/dashboard/health-insights" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} defaultView="health-insights" />} />
+      <Route path="/dashboard/dietitian-support" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} defaultView="dietitian-support" />} />
+      <Route path="/dashboard/weekly-checkins" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} defaultView="weekly-checkins" />} />
       <Route path="/health-profile" element={<HealthProfilePage />} />
     </Routes>
   );

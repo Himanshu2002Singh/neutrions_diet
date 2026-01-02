@@ -1,7 +1,20 @@
 import { Search, SlidersHorizontal, Plus } from 'lucide-react';
 
+interface User {
+  name: string;
+  email: string;
+  avatar: string;
+}
 
-export function DashboardHeader() {
+interface DashboardHeaderProps {
+  user?: User | null;
+}
+
+export function DashboardHeader({ user }: DashboardHeaderProps) {
+  // Use user data if available, otherwise show default
+  const displayName = user?.name || 'Adam Vasyliev';
+  const displayAvatar = user?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop';
+  
   return (
     <header className="bg-white border-b border-gray-200 px-4 lg:px-8 py-4 flex items-center justify-between">
       <div className="flex items-center gap-4">
@@ -36,13 +49,13 @@ export function DashboardHeader() {
           {/* User profile - Always visible */}
           <div className="flex items-center gap-2 lg:gap-3">
             <img
-              src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop"
-              alt="User"
+              src={displayAvatar}
+              alt={displayName}
               className="w-8 h-8 lg:w-10 lg:h-10 rounded-full"
             />
             <div className="hidden lg:block">
-              <p className="font-semibold text-sm">Adam Vasyliev</p>
-              <p className="text-xs text-gray-500">Member</p>
+              <p className="font-semibold text-sm">{displayName}</p>
+              <p className="text-xs text-gray-500">User</p>
             </div>
           </div>
         </div>

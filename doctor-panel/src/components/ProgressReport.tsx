@@ -3,7 +3,7 @@ import { Calendar, Eye } from 'lucide-react';
 import { mockUsers } from '../data/mock';
 import ProgressDetailView from './ProgressDetails';
 
-const ProgressReport: React.FC = () => {
+function ProgressReport() {
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
   if (selectedUserId !== null) {

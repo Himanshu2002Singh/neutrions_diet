@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, UserPlus, Users, TrendingUp, UsersRound, LogOut, Menu, X } from 'lucide-react';
+import { LayoutDashboard, UserPlus, Users, TrendingUp, UsersRound, LogOut, Menu, X, Gift } from 'lucide-react';
 import { useState } from 'react';
 
 const navItems = [
@@ -8,6 +8,7 @@ const navItems = [
   { path: '/assign-dietician', label: 'Assign Dietician Requests', icon: Users },
   { path: '/check-progress', label: 'Check Progress', icon: TrendingUp },
   { path: '/all-users', label: 'All Users', icon: UsersRound },
+  { path: '/referrals', label: 'Referrals', icon: Gift },
 ];
 
 export default function Sidebar() {

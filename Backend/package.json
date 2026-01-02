@@ -1,0 +1,46 @@
+{
+  "name": "neutrion-health-backend",
+  "version": "1.0.0",
+  "description": "Backend API for Neutrion Health Form Modal with MySQL and Sequelize",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "db:migrate": "node scripts/migrate.js",
+    "db:seed": "node scripts/seed.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "compression": "^1.7.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.5.1",
+    "express-validator": "^7.0.1",
+    "google-auth-library": "^10.5.0",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "morgan": "^1.10.0",
+    "mysql2": "^3.6.5",
+    "nodemailer": "^7.0.12",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
+    "sequelize": "^6.35.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.4",
+    "nodemon": "^3.0.2"
+  },
+  "keywords": [
+    "health",
+    "api",
+    "nutrition",
+    "bmi",
+    "diet",
+    "mysql",
+    "sequelize",
+    "nodejs"
+  ],
+  "author": "Neutrion Team",
+  "license": "MIT"
+}

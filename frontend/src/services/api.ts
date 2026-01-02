@@ -1,0 +1,407 @@
+// API service for backend communication
+// Use import.meta.env for Vite environment variables
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002';
+
+export interface HealthFormData {
+  weight: number;
+  height: number;
+  age: number;
+  gender: string;
+  activityLevel: string;
+  medicalConditions: string;
+  goals: string;
+}
+
+export interface BMICalculation {
+  bmi: number;
+  category: string;
+  bmr: number;
+  dailyCalories: number;
+  idealWeight: [number, number];
+  color: string;
+}
+
+export interface HealthSubmissionResponse {
+  success: boolean;
+  message: string;
+  data: {
+    healthProfile: any;
+    bmiCalculation: BMICalculation;
+    dietRecommendation?: any;
+  };
+}
+
+export interface ApiError {
+  success: false;
+  message: string;
+  errors?: string[];
+}
+
+export interface Member {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  role: 'doctor' | 'dietitian';
+  category: 'doctor' | 'dietitian' | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface MemberCreationData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  role: 'doctor' | 'dietitian';
+  phone?: string;
+  category?: 'doctor' | 'dietitian';
+}
+
+export interface MemberUpdateData {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  password?: string;
+  role?: 'doctor' | 'dietitian';
+  category?: 'doctor' | 'dietitian' | null;
+  phone?: string;
+  isActive?: boolean;
+}
+
+// Referral interfaces
+export interface ReferralStats {
+  totalReferrals: number;
+  completedReferrals: number;
+  pendingReferrals: number;
+  cancelledReferrals: number;
+  uniqueReferrers: number;
+  totalReferredUsers: number;
+}
+
+export interface UserReferrals {
+  referralCode: string;
+  referralLink: string;
+  totalReferrals: number;
+  completedReferrals: number;
+  pendingReferrals: number;
+  referredUsers: Array<{
+    id: number;
+    name: string;
+    email: string;
+    joinedAt: string;
+    status: string;
+    rewardStatus: string;
+  }>;
+}
+
+class ApiService {
+  private async makeRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
+    try {
+      // Get the auth token from localStorage
+      const token = localStorage.getItem('neutrion-auth-token');
+      
+      // Debug: log token status
+      console.log('API Request:', {
+        endpoint,
+        hasToken: !!token,
+        tokenPreview: token ? token.substring(0, 20) + '...' : null
+      });
+      
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...options?.headers,
+      };
+      
+      // Add Authorization header if token exists
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        headers,
+        ...options,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'API request failed');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('API Error:', error);
+      throw error;
+    }
+  }
+
+  // Submit health form data
+  async submitHealthForm(userId: number, formData: HealthFormData): Promise<HealthSubmissionResponse> {
+    return this.makeRequest<HealthSubmissionResponse>('/api/health/submit/' + userId, {
+      method: 'POST',
+      body: JSON.stringify(formData),
+    });
+  }
+
+  // Get user health profile
+  async getHealthProfile(userId: number): Promise<any> {
+    return this.makeRequest('/api/health/profile/' + userId);
+  }
+
+  // Get health profile history
+  async getHealthHistory(userId: number): Promise<any> {
+    return this.makeRequest('/api/health/profile/' + userId + '/history');
+  }
+
+  // Calculate BMI only
+  async calculateBMI(formData: HealthFormData): Promise<{ data: { bmiCalculation: BMICalculation } }> {
+    return this.makeRequest('/api/bmi/calculate', {
+      method: 'POST',
+      body: JSON.stringify(formData),
+    });
+  }
+
+  // Get BMI categories
+  async getBMICategories(): Promise<any> {
+    return this.makeRequest('/api/bmi/categories');
+  }
+
+  // Get diet recommendations
+  async getDietRecommendations(userId: number): Promise<any> {
+    return this.makeRequest('/api/diet/recommendations/' + userId);
+  }
+
+  // Health check
+  async healthCheck(): Promise<any> {
+    return this.makeRequest('/health');
+  }
+
+  // Admin Dashboard API methods
+  
+  // Get all users with their health profiles for admin dashboard
+  async getUsersWithHealthProfiles(limit: number = 50, offset: number = 0): Promise<{
+    success: boolean;
+    data: Array<{
+      id: number;
+      userName: string;
+      email: string;
+      phone: string;
+      age: number | string;
+      plan: string;
+      amount: string;
+      createdAt: string;
+      healthDetails: {
+        medicalIssues: string;
+        weight: number;
+        height: number;
+        age: number;
+        gender: string;
+        activityLevel: string;
+        medicalConditions: string;
+        allergies: string;
+        medications: string;
+        dietaryRestrictions: string;
+        bmi: number;
+        bmiCategory: string;
+        dailyCalories: number;
+        dietRecommendations?: any;
+      };
+    }>;
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
+    return this.makeRequest(`/api/health/admin/users-with-profiles?limit=${limit}&offset=${offset}`);
+  }
+
+  // Get a specific user's health profile for admin dashboard
+  async getUserHealthProfile(userId: number): Promise<{
+    success: boolean;
+    data: {
+      id: number;
+      userName: string;
+      email: string;
+      phone: string;
+      age: number | string;
+      plan: string;
+      amount: string;
+      createdAt: string;
+      healthDetails: {
+        medicalIssues: string;
+        weight: number;
+        height: number;
+        age: number;
+        gender: string;
+        activityLevel: string;
+        medicalConditions: string;
+        allergies: string;
+        medications: string;
+        dietaryRestrictions: string;
+        bmi: number;
+        bmiCategory: string;
+        dailyCalories: number;
+        dietRecommendations?: any;
+      };
+    };
+  }> {
+    return this.makeRequest(`/api/health/admin/user/${userId}/profile`);
+  }
+
+  // Member Management API methods
+
+  // Create a new member (doctor or dietician)
+  async createMember(memberData: MemberCreationData): Promise<{
+    success: boolean;
+    message: string;
+    data: Member;
+  }> {
+    return this.makeRequest('/api/members', {
+      method: 'POST',
+      body: JSON.stringify(memberData),
+    });
+  }
+
+  // Get all members with pagination
+  async getMembers(limit: number = 50, offset: number = 0, role?: string): Promise<{
+    success: boolean;
+    data: Member[];
+    pagination: {
+      total: number;
+      limit: number;
+      offset: number;
+      pages: number;
+    };
+  }> {
+    const params = new URLSearchParams({
+      limit: limit.toString(),
+      offset: offset.toString(),
+      ...(role && { role })
+    });
+    
+    return this.makeRequest(`/api/members?${params}`);
+  }
+
+  // Get a specific member by ID
+  async getMember(memberId: number): Promise<{
+    success: boolean;
+    data: Member;
+  }> {
+    return this.makeRequest(`/api/members/${memberId}`);
+  }
+
+  // Update a member
+  async updateMember(memberId: number, updateData: MemberUpdateData): Promise<{
+    success: boolean;
+    message: string;
+    data: Member;
+  }> {
+    return this.makeRequest(`/api/members/${memberId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updateData),
+    });
+  }
+
+  // Delete a member (soft delete)
+  async deleteMember(memberId: number): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    return this.makeRequest(`/api/members/${memberId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Get member statistics
+  async getMemberStats(): Promise<{
+    success: boolean;
+    data: {
+      totalDoctors: number;
+      totalDietitians: number;
+      totalActive: number;
+      total: number;
+    };
+  }> {
+    return this.makeRequest('/api/members/stats');
+  }
+
+  // Get assignable members (for assignment functionality)
+  async getAssignableMembers(role?: string): Promise<{
+    success: boolean;
+    data: Member[];
+    pagination: {
+      total: number;
+      limit: number;
+      offset: number;
+      pages: number;
+    };
+  }> {
+    const params = role ? `?role=${role}` : '';
+    return this.makeRequest(`/api/members/assignable${params}`);
+  }
+
+  // Referral Management API methods (for regular users)
+
+  // Get user's referral code
+  async getMyReferralCode(): Promise<{
+    success: boolean;
+    data: {
+      referralCode: string;
+      referralLink: string;
+    };
+  }> {
+    return this.makeRequest('/api/referral/my-code');
+  }
+
+  // Generate a new referral code
+  async generateReferralCode(): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      referralCode: string;
+      referralLink: string;
+    };
+  }> {
+    return this.makeRequest('/api/referral/generate', {
+      method: 'POST',
+    });
+  }
+
+  // Apply a referral code (when signing up)
+  async applyReferralCode(referralCode: string): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    return this.makeRequest('/api/referral/apply', {
+      method: 'POST',
+      body: JSON.stringify({ referralCode }),
+    });
+  }
+
+  // Get user's referral statistics
+  async getMyReferrals(): Promise<{
+    success: boolean;
+    data: UserReferrals;
+  }> {
+    return this.makeRequest('/api/referral/my-referrals');
+  }
+
+  // Get referral stats
+  async getReferralStats(): Promise<{
+    success: boolean;
+    data: ReferralStats;
+  }> {
+    return this.makeRequest('/api/referral/stats');
+  }
+}
+
+// Create a singleton instance
+export const apiService = new ApiService();
+
+// Export the class for testing
+export default ApiService;
+
