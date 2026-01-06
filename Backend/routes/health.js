@@ -2,6 +2,7 @@ const express = require('express');
 const { body, param, query } = require('express-validator');
 const healthController = require('../controllers/HealthController');
 const { authenticateAdmin } = require('../middleware/auth');
+const upload = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -212,6 +213,146 @@ router.get('/doctor/assigned-users', authenticateAdmin, healthController.getDoct
  * @access Doctor/Dietician
  */
 router.get('/doctor/user/:userId/health-profile', authenticateAdmin, validateUserId, healthController.getUserHealthProfileForDoctor);
+
+/**
+ * @route POST /api/health/doctor/upload-diet-file
+ * @desc Upload a diet file for a user
+ * @access Doctor/Dietician
+ */
+router.post('/doctor/upload-diet-file', authenticateAdmin, upload.single('file'), healthController.uploadDietFile);
+
+/**
+ * @route GET /api/health/doctor/user/:userId/diet-files
+ * @desc Get all diet files for a user
+ * @access Doctor/Dietician
+ */
+router.get('/doctor/user/:userId/diet-files', authenticateAdmin, validateUserId, healthController.getUserDietFiles);
+
+/**
+ * @route GET /api/health/doctor/diet-files/:fileId/download
+ * @desc Download a diet file
+ * @access Doctor/Dietician
+ */
+router.get('/doctor/diet-files/:fileId/download', authenticateAdmin, healthController.downloadDietFile);
+
+/**
+ * @route DELETE /api/health/doctor/diet-files/:fileId
+ * @desc Delete a diet file
+ * @access Doctor/Dietician
+ */
+router.delete('/doctor/diet-files/:fileId', authenticateAdmin, healthController.deleteDietFile);
+
+/**
+ * @route GET /api/health/admin/user-diet-report
+ * @desc Get user diet report - shows users with assigned doctors and diet upload status
+ * @access Admin
+ */
+router.get('/admin/user-diet-report',
+  query('limit')
+    .optional()
+    .isInt({ min: 1, max: 100 })
+    .withMessage('Limit must be between 1 and 100'),
+  query('offset')
+    .optional()
+    .isInt({ min: 0 })
+    .withMessage('Offset must be a non-negative integer'),
+  healthController.getUserDietReport
+);
+
+// Daily Meal Activity Routes (User-facing)
+
+/**
+ * @route POST /api/health/meal-activity/save
+ * @desc Save user's daily meal activity
+ * @access User
+ */
+router.post('/meal-activity/save',
+  body('date')
+    .isISO8601()
+    .withMessage('Date must be a valid ISO date'),
+  body('mealType')
+    .isString()
+    .isIn(['breakfast', 'mid-morning', 'lunch', 'pre-workout', 'evening-snacks', 'dinner', 'bedtime'])
+    .withMessage('Meal type must be valid'),
+  body('selectedItems')
+    .isArray()
+    .withMessage('Selected items must be an array'),
+  body('notes')
+    .optional()
+    .isString()
+    .withMessage('Notes must be a string'),
+  healthController.saveMealActivity
+);
+
+/**
+ * @route GET /api/health/meal-activity/:userId/:date
+ * @desc Get user's meal activity for a specific date
+ * @access User
+ */
+router.get('/meal-activity/:userId/:date',
+  validateUserId,
+  param('date')
+    .isISO8601()
+    .withMessage('Date must be a valid ISO date'),
+  healthController.getMealActivityByDate
+);
+
+/**
+ * @route GET /api/health/meal-activity/:userId
+ * @desc Get user's meal activities for a date range (default: last 7 days)
+ * @access User
+ */
+router.get('/meal-activity/:userId',
+  validateUserId,
+  query('startDate')
+    .optional()
+    .isISO8601()
+    .withMessage('Start date must be a valid ISO date'),
+  query('endDate')
+    .optional()
+    .isISO8601()
+    .withMessage('End date must be a valid ISO date'),
+  healthController.getMealActivities
+);
+
+/**
+ * @route GET /api/diet/personalized/:userId
+ * @desc Get personalized diet plan for a user based on their health profile
+ * @access User
+ */
+router.get('/diet/personalized/:userId', validateUserId, healthController.getPersonalizedDietPlan);
+
+/**
+ * @route GET /api/diet/files
+ * @desc Get all diet files/menu items
+ * @access User
+ */
+router.get('/diet/files',
+  query('category')
+    .optional()
+    .isString()
+    .withMessage('Category must be a string'),
+  healthController.getDietFiles
+);
+
+/**
+ * @route GET /api/diet/files/:id
+ * @desc Get a specific diet file by ID
+ * @access User
+ */
+router.get('/diet/files/:id',
+  param('id')
+    .isInt({ min: 1 })
+    .withMessage('Diet file ID must be a valid integer'),
+  healthController.getDietFile
+);
+
+/**
+ * @route GET /api/diet/files/featured
+ * @desc Get featured diet file
+ * @access User
+ */
+router.get('/diet/files/featured', healthController.getFeaturedDietFile);
 
 module.exports = router;
 

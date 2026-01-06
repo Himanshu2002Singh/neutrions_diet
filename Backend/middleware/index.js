@@ -4,6 +4,9 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const { sequelize } = require('../models');
 
 // CORS configuration
@@ -215,10 +218,61 @@ const applyMiddleware = (app) => {
   app.use(dbMiddleware);
 };
 
+// Multer configuration for diet file uploads
+const UPLOAD_DIR = path.join(__dirname, '../uploads/diets');
+
+// Ensure upload directory exists
+function ensureUploadDir() {
+  const dirs = [
+    path.join(__dirname, '../uploads'),
+    UPLOAD_DIR
+  ];
+  
+  dirs.forEach(dir => {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  });
+}
+
+// Configure multer storage
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    ensureUploadDir();
+    cb(null, UPLOAD_DIR);
+  },
+  filename: function (req, file, cb) {
+    // Create unique filename with timestamp
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, 'diet-' + uniqueSuffix + ext);
+  }
+});
+
+// File filter for PDF only
+const fileFilter = (req, file, cb) => {
+  if (file.mimetype === 'application/pdf') {
+    cb(null, true);
+  } else {
+    cb(new Error('Only PDF files are allowed!'), false);
+  }
+};
+
+// Create multer upload middleware
+const uploadMiddleware = multer({
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
+  },
+  fileFilter: fileFilter
+}).single('dietFile');
+
 module.exports = {
   applyMiddleware,
   errorHandler,
   notFoundHandler,
-  createRateLimiter
+  createRateLimiter,
+  uploadMiddleware,
+  ensureUploadDir
 };
 

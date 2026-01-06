@@ -120,6 +120,118 @@ export const getUserHealthProfile = async (userId: number): Promise<{ success: b
   return makeAuthenticatedRequest(`/health/doctor/user/${userId}/health-profile`);
 };
 
+// Upload diet file for a user
+export const uploadDietFile = async (
+  userId: number,
+  file: File,
+  description: string
+): Promise<{ success: boolean; message: string; data?: any }> => {
+  const token = getToken();
+  
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('userId', userId.toString());
+  formData.append('description', description);
+
+  const response = await fetch(`${API_BASE_URL}/health/doctor/upload-diet-file`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to upload diet file');
+  }
+
+  return data;
+};
+
+// Get diet files for a user
+export const getUserDietFiles = async (userId: number): Promise<{ success: boolean; data: DietFile[] }> => {
+  return makeAuthenticatedRequest(`/health/doctor/user/${userId}/diet-files`);
+};
+
+// Download a diet file
+export const downloadDietFile = async (fileId: number): Promise<{ success: boolean; url?: string }> => {
+  const token = getToken();
+  
+  const response = await fetch(`${API_BASE_URL}/health/doctor/diet-files/${fileId}/download`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.message || 'Failed to download file');
+  }
+
+  // Get the blob and create a download link
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  
+  // Trigger download
+  const contentDisposition = response.headers.get('content-disposition');
+  let fileName = 'diet-file.pdf';
+  if (contentDisposition) {
+    const fileNameMatch = contentDisposition.match(/filename="(.+)"/);
+    if (fileNameMatch) {
+      fileName = fileNameMatch[1];
+    }
+  }
+  
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+
+  return { success: true, url };
+};
+
+// Delete a diet file
+export const deleteDietFile = async (fileId: number): Promise<{ success: boolean; message: string }> => {
+  const token = getToken();
+  
+  const response = await fetch(`${API_BASE_URL}/health/doctor/diet-files/${fileId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to delete file');
+  }
+
+  return data;
+};
+
+// Diet file interface
+export interface DietFile {
+  id: number;
+  userId: number;
+  doctorId: number;
+  fileName: string;
+  originalName: string;
+  filePath: string;
+  fileSize: number;
+  mimeType: string;
+  description: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Auth types for doctor-panel
 
 export interface AdminUser {

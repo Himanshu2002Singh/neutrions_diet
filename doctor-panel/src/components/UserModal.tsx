@@ -1,19 +1,43 @@
-import React from 'react';
-import { X, User, Scale, Ruler, Activity, Target, Heart, Clock, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
-import { AssignedUser } from '../services/api';
+import React, { useState, useEffect } from 'react';
+import { X, User, Scale, Ruler, Activity, Target, Heart, Clock, AlertCircle, CheckCircle, Loader2, FileText, Download, Trash2 } from 'lucide-react';
+import { AssignedUser, getUserDietFiles, downloadDietFile, deleteDietFile, DietFile } from '../services/api';
+import DietUploadModal from './DietUploadModal';
 
 interface UserDetailsModalProps {
   user: AssignedUser;
   userDetails: any;
   loading: boolean;
   onClose: () => void;
+  onUploadComplete: () => void;
 }
 
-function UserDetailsModal({ user, userDetails, loading, onClose }: UserDetailsModalProps) {
+function UserDetailsModal({ user, userDetails, loading, onClose, onUploadComplete }: UserDetailsModalProps) {
   const data = userDetails || user;
   const healthProfile = data?.healthProfile || user.healthProfile;
+  
+  const [dietFiles, setDietFiles] = useState<DietFile[]>([]);
+  const [dietFilesLoading, setDietFilesLoading] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [deletingFile, setDeletingFile] = useState<number | null>(null);
 
-  // Helper functions
+  useEffect(() => {
+    const fetchDietFiles = async () => {
+      try {
+        setDietFilesLoading(true);
+        const response = await getUserDietFiles(user.id);
+        if (response.success && response.data) {
+          setDietFiles(response.data);
+        }
+      } catch (err) {
+        console.error('Error fetching diet files:', err);
+      } finally {
+        setDietFilesLoading(false);
+      }
+    };
+
+    fetchDietFiles();
+  }, [user.id]);
+
   const formatGender = (gender: string) => {
     const genderMap: Record<string, string> = {
       male: 'Male',
@@ -43,15 +67,50 @@ function UserDetailsModal({ user, userDetails, loading, onClose }: UserDetailsMo
     return 'bg-gray-100 text-gray-800';
   };
 
+  const handleDownloadFile = async (fileId: number) => {
+    try {
+      await downloadDietFile(fileId);
+    } catch (err: any) {
+      console.error('Error downloading file:', err);
+      alert('Failed to download file: ' + err.message);
+    }
+  };
+
+  const handleDeleteFile = async (fileId: number) => {
+    if (!confirm('Are you sure you want to delete this diet file?')) {
+      return;
+    }
+
+    try {
+      setDeletingFile(fileId);
+      const response = await deleteDietFile(fileId);
+      if (response.success) {
+        setDietFiles(prev => prev.filter(f => f.id !== fileId));
+      }
+    } catch (err: any) {
+      console.error('Error deleting file:', err);
+      alert('Failed to delete file: ' + err.message);
+    } finally {
+      setDeletingFile(null);
+    }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-auto">
-        {/* Header */}
         <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="flex-shrink-0 h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
               <span className="text-blue-600 font-bold text-lg">
-                {user.userName.split(' ').map((n: string) => n[0]).join('').toUpperCase()}
+                {user.userName.split(' ').map((n) => n[0]).join('').toUpperCase()}
               </span>
             </div>
             <div>
@@ -60,14 +119,13 @@ function UserDetailsModal({ user, userDetails, loading, onClose }: UserDetailsMo
             </div>
           </div>
           <button 
-            onClick={onClose} 
+            onClick={onClose}
             className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full transition-colors"
           >
             <X size={24} />
           </button>
         </div>
 
-        {/* Content */}
         <div className="p-6">
           {loading ? (
             <div className="flex items-center justify-center py-12">
@@ -76,7 +134,6 @@ function UserDetailsModal({ user, userDetails, loading, onClose }: UserDetailsMo
             </div>
           ) : (
             <div className="space-y-6">
-              {/* Basic Information */}
               <div className="bg-gray-50 rounded-lg p-4">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                   <User size={20} />
@@ -102,9 +159,7 @@ function UserDetailsModal({ user, userDetails, loading, onClose }: UserDetailsMo
                 </div>
               </div>
 
-              {/* Body Metrics */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Weight & Height */}
                 <div className="bg-blue-50 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                     <Scale size={20} />
@@ -128,7 +183,6 @@ function UserDetailsModal({ user, userDetails, loading, onClose }: UserDetailsMo
                   </div>
                 </div>
 
-                {/* BMI */}
                 <div className="bg-purple-50 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                     <Activity size={20} />
@@ -157,7 +211,6 @@ function UserDetailsModal({ user, userDetails, loading, onClose }: UserDetailsMo
                 </div>
               </div>
 
-              {/* Medical Conditions */}
               <div className="bg-red-50 rounded-lg p-4">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                   <Heart size={20} />
@@ -182,7 +235,6 @@ function UserDetailsModal({ user, userDetails, loading, onClose }: UserDetailsMo
                 )}
               </div>
 
-              {/* Goals */}
               <div className="bg-green-50 rounded-lg p-4">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                   <Target size={20} />
@@ -204,7 +256,6 @@ function UserDetailsModal({ user, userDetails, loading, onClose }: UserDetailsMo
                 )}
               </div>
 
-              {/* Diet Recommendations */}
               {healthProfile?.dietRecommendation && (
                 <div className="bg-yellow-50 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
@@ -279,7 +330,80 @@ function UserDetailsModal({ user, userDetails, loading, onClose }: UserDetailsMo
                 </div>
               )}
 
-              {/* Assignment Info */}
+              <div className="bg-green-50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                    <FileText size={20} />
+                    Diet Files
+                  </h3>
+                  <button
+                    onClick={() => setShowUploadModal(true)}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm flex items-center gap-2"
+                  >
+                    <UploadIcon size={16} />
+                    Upload Diet
+                  </button>
+                </div>
+
+                {dietFilesLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="animate-spin text-green-600" size={24} />
+                    <span className="ml-2 text-gray-600">Loading diet files...</span>
+                  </div>
+                ) : dietFiles.length > 0 ? (
+                  <div className="space-y-3">
+                    {dietFiles.map((file) => (
+                      <div 
+                        key={file.id}
+                        className="flex items-center justify-between p-3 bg-white rounded-lg border border-green-200"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 bg-red-100 rounded-lg flex items-center justify-center">
+                            <FileText className="text-red-600" size={20} />
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-800">{file.originalName}</p>
+                            <p className="text-sm text-gray-500">
+                              {formatFileSize(file.fileSize)} • Uploaded {new Date(file.createdAt).toLocaleDateString()}
+                            </p>
+                            {file.description && (
+                              <p className="text-sm text-gray-600 mt-1">{file.description}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleDownloadFile(file.id)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Download"
+                          >
+                            <Download size={18} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteFile(file.id)}
+                            disabled={deletingFile === file.id}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                            title="Delete"
+                          >
+                            {deletingFile === file.id ? (
+                              <Loader2 className="animate-spin" size={18} />
+                            ) : (
+                              <Trash2 size={18} />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <FileText className="mx-auto h-12 w-12 text-gray-300 mb-3" />
+                    <p>No diet files uploaded yet</p>
+                    <p className="text-sm mt-1">Click "Upload Diet" to add a diet plan PDF</p>
+                  </div>
+                )}
+              </div>
+
               {data.assignedAt && (
                 <div className="bg-gray-50 rounded-lg p-4 flex items-center gap-2 text-sm text-gray-500">
                   <Clock size={16} />
@@ -290,7 +414,6 @@ function UserDetailsModal({ user, userDetails, loading, onClose }: UserDetailsMo
           )}
         </div>
 
-        {/* Footer */}
         <div className="sticky bottom-0 bg-white border-t px-6 py-4 flex justify-end gap-3">
           <button 
             onClick={onClose}
@@ -298,14 +421,44 @@ function UserDetailsModal({ user, userDetails, loading, onClose }: UserDetailsMo
           >
             Close
           </button>
-          <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+          <button 
+            onClick={() => setShowUploadModal(true)}
+            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+          >
+            <FileText size={18} />
             Upload Diet Plan
           </button>
         </div>
       </div>
+
+      {showUploadModal && (
+        <DietUploadModal
+          userId={user.id}
+          userName={user.userName}
+          onClose={() => setShowUploadModal(false)}
+          onUploadComplete={() => {
+            getUserDietFiles(user.id).then(response => {
+              if (response.success && response.data) {
+                setDietFiles(response.data);
+              }
+            });
+            onUploadComplete();
+          }}
+        />
+      )}
     </div>
   );
-};
+}
+
+function UploadIcon({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+  );
+}
 
 export default UserDetailsModal;
 

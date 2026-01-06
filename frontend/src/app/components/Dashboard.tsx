@@ -10,6 +10,7 @@ import { BMI_Calculator } from './dashboard/BMI_Calculator';
 import { Diet_Generator } from './dashboard/Diet_Generator';
 import { Health_Profile } from './dashboard/Health_Profile';
 import { WorkoutPlans } from './dashboard/WorkoutPlans';
+import { PersonalizedDietView } from './dashboard/PersonalizedDietView';
 import { BMICalculation } from '../../types/health';
 
 interface User {
@@ -115,10 +116,7 @@ export function Dashboard({ initialProfileData, onLogout, defaultView, user }: D
         );
       case 'personalized-diet':
         return (
-          <Diet_Generator 
-            bmiCalculation={bmiCalculation}
-            medicalConditions={medicalConditions}
-          />
+          <PersonalizedDietView />
         );
       case 'progress-tracking':
         return (

@@ -156,6 +156,49 @@ export interface UserWithHealthProfile {
   healthDetails: HealthDetails;
 }
 
+// User Diet Report Types
+export interface AssignedDoctor {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+}
+
+export interface DietStatus {
+  hasDietFile: boolean;
+  dietUploadedAt?: string | null;
+  dietFileName?: string | null;
+  dietFileId?: number | null;
+  status: 'uploaded' | 'pending';
+  statusText: string;
+}
+
+export interface UserDietReport {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  age: number | string;
+  subscription: string;
+  assignedDoctor: AssignedDoctor | null;
+  assignedAt?: string | null;
+  dietStatus: DietStatus;
+  createdAt: string;
+}
+
+export interface UserDietReportResponse {
+  success: boolean;
+  message?: string;
+  data: UserDietReport[];
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
 class ApiService {
   private async makeRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
     try {
@@ -372,6 +415,57 @@ class ApiService {
   // Health check
   async healthCheck(): Promise<any> {
     return this.makeRequest('/health');
+  }
+
+  // User Diet Report API methods (admin)
+
+  // Get user diet report - users with assigned doctors and diet upload status
+  async getUserDietReport(
+    limit: number = 100,
+    offset: number = 0
+  ): Promise<UserDietReportResponse> {
+    const params = new URLSearchParams({
+      limit: limit.toString(),
+      offset: offset.toString()
+    });
+    
+    return this.makeRequest(`/api/health/admin/user-diet-report?${params}`);
+  }
+
+  // Download a diet file
+  async downloadDietFile(fileId: number): Promise<void> {
+    const token = localStorage.getItem('neutrion-auth-token');
+    const response = await fetch(`${API_BASE_URL}/api/health/doctor/diet-files/${fileId}/download`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to download file');
+    }
+
+    // Get the filename from the Content-Disposition header
+    const contentDisposition = response.headers.get('Content-Disposition');
+    let fileName = 'diet-file.pdf';
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename="(.+)"/);
+      if (match && match[1]) {
+        fileName = match[1];
+      }
+    }
+
+    // Create a blob from the response and trigger download
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
   }
 }
 

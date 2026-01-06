@@ -1,6 +1,6 @@
 // API service for backend communication
 // Use import.meta.env for Vite environment variables
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002';
+const API_BASE_URL =  'http://localhost:3002';
 
 export interface HealthFormData {
   weight: number;
@@ -396,6 +396,206 @@ class ApiService {
     data: ReferralStats;
   }> {
     return this.makeRequest('/api/referral/stats');
+  }
+
+  // Meal Activity API methods (for personalized diet tracking)
+
+  // Save user's daily meal activity
+  async saveMealActivity(userId: number, data: {
+    date: string;
+    mealType: string;
+    selectedItems: string[];
+    notes?: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      id: number;
+      userId: number;
+      date: string;
+      mealType: string;
+      selectedItems: string[];
+      notes: string | null;
+    };
+  }> {
+    return this.makeRequest('/api/health/meal-activity/save', {
+      method: 'POST',
+      body: JSON.stringify({ ...data, userId }),
+    });
+  }
+
+  // Get user's meal activity for a specific date
+  async getMealActivityByDate(userId: number, date: string): Promise<{
+    success: boolean;
+    data: {
+      userId: number;
+      date: string;
+      activities: Record<string, {
+        id: number;
+        selectedItems: string[];
+        notes: string | null;
+        createdAt: string;
+        updatedAt: string;
+      }>;
+    };
+  }> {
+    return this.makeRequest(`/api/health/meal-activity/${userId}/${date}`);
+  }
+
+  // Get user's meal activities for a date range
+  async getMealActivities(userId: number, startDate?: string, endDate?: string): Promise<{
+    success: boolean;
+    data: {
+      userId: number;
+      startDate: string;
+      endDate: string;
+      activitiesByDate: Record<string, Record<string, {
+        id: number;
+        selectedItems: string[];
+        notes: string | null;
+        createdAt: string;
+        updatedAt: string;
+      }>>;
+    };
+  }> {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    
+    const queryString = params.toString();
+    return this.makeRequest(`/api/health/meal-activity/${userId}${queryString ? '?' + queryString : ''}`);
+  }
+
+  // Diet Files / Menu Items API methods
+
+  // Get all diet files (menu items) from backend
+  async getDietFiles(category?: string): Promise<{
+    success: boolean;
+    data: Array<{
+      id: number;
+      name: string;
+      description: string;
+      imageUrl: string;
+      category: string;
+      calories: number;
+      carbs: number;
+      protein: number;
+      fats: number;
+      difficulty: string;
+      healthScore: number;
+      prepTime: number;
+      mealType: string;
+      isFeatured: boolean;
+    }>;
+  }> {
+    const params = category ? `?category=${category}` : '';
+    return this.makeRequest(`/api/diet/files${params}`);
+  }
+
+  // Get a specific diet file by ID
+  async getDietFile(dietFileId: number): Promise<{
+    success: boolean;
+    data: {
+      id: number;
+      name: string;
+      description: string;
+      imageUrl: string;
+      category: string;
+      calories: number;
+      carbs: number;
+      protein: number;
+      fats: number;
+      difficulty: string;
+      healthScore: number;
+      prepTime: number;
+      mealType: string;
+      ingredients: string[];
+      steps: string[];
+      isFeatured: boolean;
+    };
+  }> {
+    return this.makeRequest(`/api/diet/files/${dietFileId}`);
+  }
+
+  // Get featured diet file
+  async getFeaturedDietFile(): Promise<{
+    success: boolean;
+    data: {
+      id: number;
+      name: string;
+      description: string;
+      imageUrl: string;
+      category: string;
+      calories: number;
+      carbs: number;
+      protein: number;
+      fats: number;
+      difficulty: string;
+      healthScore: number;
+      prepTime: number;
+      mealType: string;
+      isFeatured: boolean;
+    };
+  }> {
+    return this.makeRequest('/api/diet/files/featured');
+  }
+
+  // Get personalized diet plan for user based on their profile
+  async getPersonalizedDietPlan(userId: number): Promise<{
+    success: boolean;
+    data: {
+      userId: number;
+      userName: string;
+      profile: {
+        age: number;
+        weight: number;
+        height: number;
+        bmiCategory: string;
+        target: string;
+      };
+      nutritionTargets: {
+        calories: string;
+        protein: string;
+        fiber: string;
+        fat: string;
+        carbs: string;
+      };
+      dailySchedule: Array<{
+        time: string;
+        mealType: string;
+        title: string;
+        description?: string;
+        options: Array<{
+          name: string;
+          portion: string;
+          imageUrl: string;
+          calories: number;
+          macros?: {
+            protein: number;
+            carbs: number;
+            fats: number;
+          };
+          notes?: string;
+        }>;
+        tips?: string;
+      }>;
+      lateNightOptions: Array<{
+        name: string;
+        portion: string;
+        imageUrl: string;
+        calories: number;
+        macros?: {
+          protein: number;
+          carbs: number;
+          fats: number;
+        };
+      }>;
+      importantPoints?: string[];
+      portionSizeReference?: Record<string, string>;
+      goals?: string[];
+    };
+  }> {
+    return this.makeRequest(`/api/health/diet/personalized/${userId}`);
   }
 }
 

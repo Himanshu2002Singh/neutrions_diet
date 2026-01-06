@@ -1,36 +1,184 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Filter, Grid3x3, List } from 'lucide-react';
+import { apiService } from '../../../services/api';
+
+// API response types matching backend
+interface FoodOption {
+  name: string;
+  portion: string;
+  imageUrl: string;
+  calories: number;
+  macros?: {
+    protein: number;
+    carbs: number;
+    fats: number;
+  };
+}
+
+interface MealSchedule {
+  time: string;
+  mealType: string;
+  title: string;
+  description?: string;
+  options: FoodOption[];
+  tips?: string;
+}
+
+interface LateNightOption {
+  name: string;
+  portion: string;
+  imageUrl: string;
+  calories: number;
+  macros?: {
+    protein: number;
+    carbs: number;
+    fats: number;
+  };
+}
+
+interface PersonalizedDietPlan {
+  userId: number;
+  userName: string;
+  profile: {
+    age: number;
+    weight: number;
+    height: number;
+    bmiCategory: string;
+    target: string;
+  };
+  nutritionTargets: {
+    calories: string;
+    protein: string;
+    fiber: string;
+    fat: string;
+    carbs: string;
+  };
+  dailySchedule: MealSchedule[];
+  lateNightOptions: LateNightOption[];
+  importantPoints?: string[];
+  portionSizeReference?: Record<string, string>;
+  goals?: string[];
+}
+
+interface MenuItem {
+  name: string;
+  image: string;
+  category: string;
+  difficulty: string;
+  calories: number;
+  carbs: number;
+  protein: number;
+  fats: number;
+  healthScore: number;
+  categoryColor: string;
+  time: string;
+  portion: string;
+}
 
 export function AllMenuSection() {
   const [activeTab, setActiveTab] = useState('All');
-  const tabs = ['All', 'Breakfast', 'Lunch', 'Snack', 'Dinner'];
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [userId, setUserId] = useState<number | null>(null);
 
-  const menuItems = [
-    {
-      name: 'Avocado Toast with Poached Egg',
-      image: 'https://images.unsplash.com/photo-1585819531730-06d1aba54ce1?w=400&h=300&fit=crop',
-      category: 'Breakfast',
-      difficulty: 'Easy',
-      calories: 320,
-      carbs: 30,
-      protein: 14,
-      fats: 18,
-      healthScore: 9,
-      categoryColor: 'bg-[#C5E17A]',
-    },
-    {
-      name: 'Greek Salad with Grilled Chicken',
-      image: 'https://images.unsplash.com/photo-1604909052743-94e838986d24?w=400&h=300&fit=crop',
-      category: 'Lunch',
-      difficulty: 'Medium',
-      calories: 380,
-      carbs: 25,
-      protein: 35,
-      fats: 16,
-      healthScore: 8,
-      categoryColor: 'bg-[#FFC878]',
-    },
-  ];
+  const tabs = ['All', 'Breakfast', 'Lunch', 'Evening Snacks', 'Dinner', 'Late Night'];
+
+  useEffect(() => {
+    const savedUser = localStorage.getItem('neutrion-user');
+    if (savedUser) {
+      try {
+        const user = JSON.parse(savedUser);
+        setUserId(user.id || user.userId || 1);
+      } catch {
+        setUserId(1);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (userId) {
+      fetchDietPlan();
+    }
+  }, [userId]);
+
+  const fetchDietPlan = async () => {
+    if (!userId) return;
+    
+    setIsLoading(true);
+    
+    try {
+      const response = await apiService.getPersonalizedDietPlan(userId);
+      if (response.success && response.data) {
+        const items = extractAllItems(response.data);
+        setMenuItems(items);
+      }
+    } catch (error) {
+      console.error('Failed to fetch diet plan:', error);
+      setMenuItems([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const extractAllItems = (plan: PersonalizedDietPlan) => {
+    const items: MenuItem[] = [];
+    
+    plan.dailySchedule.forEach((meal) => {
+      meal.options.forEach((option) => {
+        items.push({
+          name: option.name,
+          image: option.imageUrl,
+          category: meal.mealType,
+          difficulty: 'Easy',
+          calories: option.calories,
+          carbs: option.macros?.carbs || 0,
+          protein: option.macros?.protein || 0,
+          fats: option.macros?.fats || 0,
+          healthScore: 7 + Math.floor(Math.random() * 3),
+          categoryColor: getCategoryColor(meal.mealType),
+          time: meal.time,
+          portion: option.portion
+        });
+      });
+    });
+
+    plan.lateNightOptions.forEach((option) => {
+      items.push({
+        name: option.name,
+        image: option.imageUrl,
+        category: 'Late Night',
+        difficulty: 'Easy',
+        calories: option.calories,
+        carbs: option.macros?.carbs || 0,
+        protein: option.macros?.protein || 0,
+        fats: option.macros?.fats || 0,
+        healthScore: 7 + Math.floor(Math.random() * 3),
+        categoryColor: 'bg-purple-200',
+        time: '10:00 PM',
+        portion: option.portion
+      });
+    });
+    
+    return items;
+  };
+
+  const getCategoryColor = (category: string) => {
+    const colors: Record<string, string> = {
+      'Wake Up': 'bg-blue-200',
+      'Breakfast': 'bg-[#C5E17A]',
+      'Mid-Morning': 'bg-green-200',
+      'Lunch': 'bg-[#FFC878]',
+      'Pre-Workout': 'bg-orange-200',
+      'Evening Snacks': 'bg-yellow-200',
+      'Dinner': 'bg-blue-200',
+      'Bed Time': 'bg-indigo-200'
+    };
+    return colors[category] || 'bg-gray-200';
+  };
+
+  const filteredItems = activeTab === 'All' 
+    ? menuItems 
+    : menuItems.filter(item => item.category === activeTab);
 
   return (
     <div className="bg-white rounded-2xl p-6">
@@ -59,12 +207,13 @@ export function AllMenuSection() {
           </button>
         </div>
       </div>
-      <div className="flex gap-2 mb-6">
+      
+      <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
         {tabs.map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-6 py-2 rounded-full text-sm transition-colors ${
+            className={`px-6 py-2 rounded-full text-sm transition-colors whitespace-nowrap ${
               activeTab === tab
                 ? 'bg-[#C5E17A] text-black font-semibold'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -74,50 +223,61 @@ export function AllMenuSection() {
           </button>
         ))}
       </div>
-      <div className="space-y-4">
-        {menuItems.map((item, index) => (
-          <div key={index} className="flex items-center gap-6 p-4 border border-gray-200 rounded-2xl hover:shadow-md transition-shadow">
-            <img
-              src={item.image}
-              alt={item.name}
-              className="w-32 h-32 object-cover rounded-xl"
-            />
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <span className={`${item.categoryColor} text-black text-xs px-3 py-1 rounded-full`}>
-                  {item.category}
-                </span>
-                <span className="text-xs text-gray-500">• {item.difficulty}</span>
-              </div>
-              <h4 className="text-lg font-bold mb-3">{item.name}</h4>
-              <div className="flex items-center gap-6 text-sm text-gray-600">
-                <span>🔥 {item.calories} kcal</span>
-                <span>🍞 {item.carbs}g carbs</span>
-                <span>💪 {item.protein}g protein</span>
-                <span>🥑 {item.fats}g fats</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Health Score</p>
-                <div className="flex gap-1">
-                  {[...Array(10)].map((_, i) => (
-                    <div
-                      key={i}
-                      className={`w-2 h-6 rounded-full ${
-                        i < item.healthScore ? 'bg-[#FFC878]' : 'bg-gray-200'
-                      }`}
-                    />
-                  ))}
+
+      {isLoading ? (
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C5E17A]"></div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {filteredItems.map((item, index) => (
+            <div key={index} className="flex items-center gap-6 p-4 border border-gray-200 rounded-2xl hover:shadow-md transition-shadow">
+              <img
+                src={item.image}
+                alt={item.name}
+                className="w-32 h-32 object-cover rounded-xl"
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className={`${item.categoryColor} text-black text-xs px-3 py-1 rounded-full`}>
+                    {item.category}
+                  </span>
+                  <span className="text-xs text-gray-500">• {item.time} • {item.difficulty}</span>
+                </div>
+                <h4 className="text-lg font-bold mb-2">{item.name}</h4>
+                <p className="text-sm text-gray-500 mb-3">{item.portion}</p>
+                <div className="flex items-center gap-6 text-sm text-gray-600">
+                  <span>🔥 {item.calories} kcal</span>
+                  <span>🍞 {item.carbs}g carbs</span>
+                  <span>💪 {item.protein}g protein</span>
+                  <span>🥑 {item.fats}g fats</span>
                 </div>
               </div>
-              <button className="bg-[#C5E17A] text-black px-6 py-2 rounded-lg hover:opacity-90 transition-opacity font-semibold">
-                Add to Meal Plan
-              </button>
+              <div className="flex items-center gap-4">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Health Score</p>
+                  <div className="flex gap-1">
+                    {[...Array(10)].map((_, i) => (
+                      <div
+                        key={i}
+                        className={`w-2 h-6 rounded-full ${
+                          i < item.healthScore ? 'bg-[#FFC878]' : 'bg-gray-200'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <button className="bg-[#C5E17A] text-black px-6 py-2 rounded-lg hover:opacity-90 transition-opacity font-semibold">
+                  Add to Meal Plan
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
+
+export default AllMenuSection;
+

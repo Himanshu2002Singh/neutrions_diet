@@ -1031,7 +1031,7 @@ class HealthService {
     });
   }
 
-  /**
+/**
    * Get a specific user's health profile for a doctor
    * @param {number} userId - User ID
    * @param {number} doctorId - Doctor ID (to verify assignment)
@@ -1118,6 +1118,128 @@ class HealthService {
       console.error('Error getting user health profile for doctor:', error);
       throw new Error(error.message || 'Failed to get user health profile');
     }
+  }
+
+  /**
+   * Get user diet report - shows users with assigned doctors and diet upload status
+   * @param {number} limit - Number of records to return
+   * @param {number} offset - Offset for pagination
+   * @returns {Object} Users with assigned doctors and diet status
+   */
+  async getUserDietReport(limit = 100, offset = 0) {
+    return this.withRetry(async () => {
+      try {
+        const { User, DietFile } = require('../models');
+        const queryInterface = sequelize.getQueryInterface();
+
+        // Get users with assigned dieticians
+        const usersQuery = `
+          SELECT
+            u.id as userId,
+            u.first_name as firstName,
+            u.last_name as lastName,
+            u.email,
+            u.phone,
+            u.created_at as createdAt,
+            u.assigned_dietician_id as assignedDieticianId,
+            u.assigned_at as assignedAt,
+            hp.age,
+            hp.weight,
+            hp.height,
+            CASE 
+              WHEN u.referral_code IS NOT NULL THEN 'Premium'
+              ELSE 'Standard'
+            END as subscription
+          FROM users u
+          LEFT JOIN health_profiles hp ON u.id = hp.user_id AND hp.is_current = 1
+          WHERE u.role = 'user'
+            AND u.is_active = 1
+            AND (u.assigned_dietician_id IS NOT NULL AND u.assigned_dietician_id > 0)
+          ORDER BY u.assigned_at DESC
+          LIMIT ? OFFSET ?
+        `;
+
+        const users = await queryInterface.sequelize.query(usersQuery, {
+          replacements: [limit, offset],
+          type: queryInterface.sequelize.QueryTypes.SELECT
+        });
+
+        // Get total count
+        const countQuery = `
+          SELECT COUNT(*) as count
+          FROM users u
+          WHERE u.role = 'user'
+            AND u.is_active = 1
+            AND (u.assigned_dietician_id IS NOT NULL AND u.assigned_dietician_id > 0)
+        `;
+
+        const countResult = await queryInterface.sequelize.query(countQuery, {
+          type: queryInterface.sequelize.QueryTypes.SELECT
+        });
+
+        const totalCount = countResult[0]?.count || 0;
+
+        // Get assigned doctor info and diet file status for each user
+        const result = await Promise.all(users.map(async (user) => {
+          // Get doctor info
+          let doctorInfo = null;
+          if (user.assignedDieticianId) {
+            const doctor = await User.findByPk(user.assignedDieticianId, {
+              attributes: ['id', 'firstName', 'lastName', 'email', 'phone', 'role']
+            });
+            if (doctor) {
+              doctorInfo = {
+                id: doctor.id,
+                name: `${doctor.firstName} ${doctor.lastName}`,
+                email: doctor.email,
+                phone: doctor.phone,
+                role: doctor.role
+              };
+            }
+          }
+
+          // Get diet file status for user
+          const latestDietFile = await DietFile.findOne({
+            where: { userId: user.userId, isActive: true },
+            order: [['createdAt', 'DESC']]
+          });
+
+          const hasDietFile = !!latestDietFile;
+          const dietUploadedAt = latestDietFile?.createdAt || null;
+          const dietFileName = latestDietFile?.originalName || null;
+          const dietFileId = latestDietFile?.id || null;
+
+          return {
+            id: user.userId,
+            name: `${user.firstName} ${user.lastName}`,
+            email: user.email,
+            phone: user.phone || 'Not specified',
+            age: user.age || 'N/A',
+            subscription: user.subscription || 'Standard',
+            assignedDoctor: doctorInfo,
+            assignedAt: user.assignedAt,
+            dietStatus: {
+              hasDietFile,
+              dietUploadedAt,
+              dietFileName,
+              dietFileId,
+              status: hasDietFile ? 'uploaded' : 'pending',
+              statusText: hasDietFile ? 'Diet Uploaded Successfully' : 'Pending'
+            },
+            createdAt: user.createdAt
+          };
+        }));
+
+        return {
+          users: result,
+          totalCount
+        };
+
+      } catch (error) {
+        console.error('Error getting user diet report:', error);
+        throw new Error('Failed to get user diet report');
+      }
+    });
   }
 }
 
