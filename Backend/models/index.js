@@ -7,6 +7,7 @@ const HealthProfile = require('./HealthProfile');
 const BMICalculation = require('./BMICalculation');
 const DietRecommendation = require('./DietRecommendation');
 const DietFile = require('./DietFile');
+const DietPlan = require('./DietPlan');
 const Referral = require('./Referral');
 const DailyMealActivity = require('./DailyMealActivity');
 
@@ -48,6 +49,13 @@ Referral.belongsTo(User, { foreignKey: 'referredUserId', as: 'referredUser' });
 User.hasMany(DailyMealActivity, { foreignKey: 'userId', as: 'dailyMealActivities' });
 DailyMealActivity.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
+// DietPlan associations
+User.hasMany(DietPlan, { foreignKey: 'userId', as: 'dietPlans' });
+DietPlan.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+User.hasMany(DietPlan, { foreignKey: 'doctorId', as: 'uploadedDietPlans' });
+DietPlan.belongsTo(User, { foreignKey: 'doctorId', as: 'doctor' });
+
 // Self-referential association for referredByUserId
 User.belongsTo(User, { foreignKey: 'referredByUserId', as: 'referredBy' });
 User.hasMany(User, { foreignKey: 'referredByUserId', as: 'referredUsers' });
@@ -75,6 +83,7 @@ module.exports = {
   BMICalculation,
   DietRecommendation,
   DietFile,
+  DietPlan,
   Referral,
   DailyMealActivity
 };

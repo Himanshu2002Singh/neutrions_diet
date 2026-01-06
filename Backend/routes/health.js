@@ -354,5 +354,21 @@ router.get('/diet/files/:id',
  */
 router.get('/diet/files/featured', healthController.getFeaturedDietFile);
 
+/**
+ * @route POST /api/diet/save-plan
+ * @desc Save or update a diet plan for a user (for doctors/admin)
+ * @access Doctor/Dietician/Admin
+ */
+router.post('/diet/save-plan', 
+  authenticateAdmin,
+  body('userId')
+    .isInt({ min: 1 })
+    .withMessage('User ID must be a valid integer'),
+  body('dietPlan')
+    .isObject()
+    .withMessage('Diet plan must be an object'),
+  healthController.saveDietPlan
+);
+
 module.exports = router;
 

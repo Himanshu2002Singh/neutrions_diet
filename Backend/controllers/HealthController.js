@@ -795,7 +795,7 @@ class HealthController {
     }
   }
 
-  /**
+/**
    * Save user's daily meal activity
    * POST /api/health/meal-activity/save
    */
@@ -826,6 +826,21 @@ class HealthController {
         return res.status(401).json({
           success: false,
           message: 'User authentication required'
+        });
+      }
+
+      // Validate date: only allow current date and previous 7 days
+      const selectedDate = new Date(date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const sevenDaysAgo = new Date(today);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
+      if (selectedDate < sevenDaysAgo) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot mark meals for dates older than 7 days. Only current and previous 7 days are allowed.'
         });
       }
 
@@ -1694,7 +1709,7 @@ class HealthController {
     };
   }
 
-  /**
+/**
    * Get personalized diet plan for a user based on their health profile
    * GET /api/diet/personalized/:userId
    */
@@ -1702,23 +1717,37 @@ class HealthController {
     try {
       const { userId } = req.params;
 
-      // Import models
-      const { HealthProfile, BMICalculation, DietRecommendation } = require('../models');
-
-      // Get user's current health profile
-      const healthProfile = await HealthProfile.findOne({
+      // Try to get diet plan from database first
+      const { DietPlan } = require('../models');
+      
+      const storedDietPlan = await DietPlan.findOne({
         where: {
           userId: parseInt(userId),
-          isCurrent: true
+          isCurrent: true,
+          isActive: true
         }
       });
 
-      // Get latest BMI calculation
-      const bmiCalculation = await BMICalculation.findOne({
-        where: { userId: parseInt(userId) },
-        order: [['createdAt', 'DESC']]
-      });
+      if (storedDietPlan) {
+        // Return the stored diet plan from database
+        return res.status(200).json({
+          success: true,
+          data: {
+            userId: storedDietPlan.userId,
+            userName: storedDietPlan.userName,
+            profile: storedDietPlan.profileData,
+            nutritionTargets: storedDietPlan.nutritionTargets,
+            dailySchedule: storedDietPlan.dailySchedule,
+            lateNightOptions: storedDietPlan.lateNightOptions,
+            importantPoints: storedDietPlan.importantPoints,
+            portionSizeReference: storedDietPlan.portionSizeReference,
+            goals: storedDietPlan.goals,
+            source: 'database'
+          }
+        });
+      }
 
+      // If no stored diet plan, generate one dynamically
       // Calculate daily calories based on profile
       let dailyCalories = 2000; // Default
       let bmiCategory = 'Normal';
@@ -1727,36 +1756,69 @@ class HealthController {
       let userWeight = 0;
       let userHeight = 0;
 
-      if (healthProfile) {
-        userAge = healthProfile.age || 0;
-        userWeight = healthProfile.weight || 0;
-        userHeight = healthProfile.height || 0;
-        userName = 'User';
-      }
+      try {
+        // Import models
+        const { HealthProfile, BMICalculation } = require('../models');
 
-      if (bmiCalculation) {
-        dailyCalories = bmiCalculation.dailyCalories || 2000;
-        bmiCategory = bmiCalculation.category || 'Normal';
-      } else if (healthProfile) {
-        // Calculate based on profile
-        const { calculateAllHealthMetrics } = require('../services/healthCalculations');
-        const metrics = calculateAllHealthMetrics({
-          weight: healthProfile.weight,
-          height: healthProfile.height,
-          age: healthProfile.age,
-          gender: healthProfile.gender,
-          activityLevel: healthProfile.activityLevel
+        // Get user's current health profile
+        const healthProfile = await HealthProfile.findOne({
+          where: {
+            userId: parseInt(userId),
+            isCurrent: true
+          }
         });
-        dailyCalories = metrics.dailyCalories;
-        bmiCategory = metrics.category;
+
+        if (healthProfile) {
+          userAge = healthProfile.age || 0;
+          userWeight = healthProfile.weight || 0;
+          userHeight = healthProfile.height || 0;
+          userName = 'User';
+        }
+
+        // Get latest BMI calculation
+        const bmiCalculation = await BMICalculation.findOne({
+          where: { userId: parseInt(userId) },
+          order: [['createdAt', 'DESC']]
+        });
+
+        if (bmiCalculation) {
+          dailyCalories = bmiCalculation.dailyCalories || 2000;
+          bmiCategory = bmiCalculation.category || 'Normal';
+        } else if (healthProfile) {
+          // Calculate based on profile
+          const { calculateAllHealthMetrics } = require('../services/healthCalculations');
+          const metrics = calculateAllHealthMetrics({
+            weight: healthProfile.weight,
+            height: healthProfile.height,
+            age: healthProfile.age,
+            gender: healthProfile.gender,
+            activityLevel: healthProfile.activityLevel
+          });
+          dailyCalories = metrics.dailyCalories;
+          bmiCategory = metrics.category;
+        }
+      } catch (dbError) {
+        console.warn('Could not fetch health data, using defaults:', dbError.message);
+        // Continue with default values
       }
 
-      // Generate Simmi Ji diet plan format
-      const dietPlan = this.generateSimmiJiDietPlan(dailyCalories, userName, userAge, userWeight, userHeight, bmiCategory, userId);
+      // Generate Simmi Ji diet plan format using the class method
+      const dietPlan = HealthController.prototype.generateSimmiJiDietPlan(
+        dailyCalories, 
+        userName, 
+        userAge, 
+        userWeight, 
+        userHeight, 
+        bmiCategory, 
+        parseInt(userId)
+      );
 
       res.status(200).json({
         success: true,
-        data: dietPlan
+        data: {
+          ...dietPlan,
+          source: 'generated'
+        }
       });
 
     } catch (error) {
@@ -1764,6 +1826,79 @@ class HealthController {
       res.status(500).json({
         success: false,
         message: 'Failed to get personalized diet plan',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Save or update a diet plan for a user (for doctors/admin)
+   * POST /api/diet/save-plan
+   */
+  async saveDietPlan(req, res) {
+    try {
+      const { userId, dietPlan } = req.body;
+
+      if (!userId || !dietPlan) {
+        return res.status(400).json({
+          success: false,
+          message: 'userId and dietPlan are required'
+        });
+      }
+
+      // Import models
+      const { DietPlan } = require('../models');
+
+      // Check if there's already a current diet plan for this user
+      let existingPlan = await DietPlan.findOne({
+        where: {
+          userId: parseInt(userId),
+          isCurrent: true
+        }
+      });
+
+      if (existingPlan) {
+        // Update existing plan
+        // First, mark all existing plans as not current
+        await DietPlan.update(
+          { isCurrent: false },
+          { where: { userId: parseInt(userId) } }
+        );
+      }
+
+      // Create new diet plan
+      const newPlan = await DietPlan.create({
+        userId: parseInt(userId),
+        doctorId: req.admin?.id || null,
+        planName: dietPlan.planName || 'Personalized Diet Plan',
+        userName: dietPlan.userName || 'User',
+        profileData: dietPlan.profile || {},
+        nutritionTargets: dietPlan.nutritionTargets || {},
+        dailySchedule: dietPlan.dailySchedule || [],
+        lateNightOptions: dietPlan.lateNightOptions || [],
+        importantPoints: dietPlan.importantPoints || [],
+        portionSizeReference: dietPlan.portionSizeReference || {},
+        goals: dietPlan.goals || [],
+        isActive: true,
+        isCurrent: true
+      });
+
+      res.status(201).json({
+        success: true,
+        message: 'Diet plan saved successfully',
+        data: {
+          id: newPlan.id,
+          userId: newPlan.userId,
+          planName: newPlan.planName,
+          createdAt: newPlan.createdAt
+        }
+      });
+
+    } catch (error) {
+      console.error('Save diet plan error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to save diet plan',
         error: error.message
       });
     }
