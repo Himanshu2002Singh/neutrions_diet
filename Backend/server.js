@@ -6,6 +6,7 @@ const usersRoutes = require('./routes/users');
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
 const referralRoutes = require('./routes/referral');
+const chatRoutes = require('./routes/chat');
 const { testConnection } = require('./config/database');
 
 require('dotenv').config();
@@ -33,6 +34,7 @@ app.use('/api/users', usersRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/referral', referralRoutes);
+app.use('/api/chat', chatRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {

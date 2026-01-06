@@ -2,21 +2,37 @@
 // FILE: src/components/Sidebar.tsx
 // ============================================
 import React from 'react';
-import { Users, TrendingUp, LayoutDashboard, X } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Users, TrendingUp, LayoutDashboard, X, MessageCircle } from 'lucide-react';
 
 interface SidebarProps {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
   activeTab: string;
-  setActiveTab: (tab: string) => void;
 }
 
-function Sidebar({ sidebarOpen, setSidebarOpen, activeTab, setActiveTab }: SidebarProps) {
+function Sidebar({ sidebarOpen, setSidebarOpen, activeTab }: SidebarProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'assigned', label: 'Assigned Users', icon: Users },
-    { id: 'progress', label: 'Progress Report', icon: TrendingUp }
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/' },
+    { id: 'assigned', label: 'Assigned Users', icon: Users, path: '/assigned' },
+    { id: 'progress', label: 'Progress Report', icon: TrendingUp, path: '/progress' },
+    { id: 'messages', label: 'Messages', icon: MessageCircle, path: '/messages' }
   ];
+
+  const handleNavigation = (path: string) => {
+    navigate(path);
+    setSidebarOpen(false);
+  };
+
+  // Get current path to determine active tab
+  const currentPath = location.pathname;
+  const getActiveTabId = () => {
+    const activeItem = menuItems.find(item => item.path === currentPath);
+    return activeItem?.id || 'dashboard';
+  };
 
   return (
     <>
@@ -31,11 +47,12 @@ function Sidebar({ sidebarOpen, setSidebarOpen, activeTab, setActiveTab }: Sideb
           <nav className="space-y-2">
             {menuItems.map(item => {
               const Icon = item.icon;
+              const isActive = getActiveTabId() === item.id;
               return (
                 <button
                   key={item.id}
-                  onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}
-                  className={`w-full flex items-center space-x-3 p-3 rounded-lg transition ${activeTab === item.id ? 'bg-white text-blue-600' : 'hover:bg-blue-700'}`}
+                  onClick={() => handleNavigation(item.path)}
+                  className={`w-full flex items-center space-x-3 p-3 rounded-lg transition ${isActive ? 'bg-white text-blue-600' : 'hover:bg-blue-700'}`}
                 >
                   <Icon size={20} />
                   <span>{item.label}</span>
@@ -54,3 +71,4 @@ function Sidebar({ sidebarOpen, setSidebarOpen, activeTab, setActiveTab }: Sideb
 };
 
 export default Sidebar;
+

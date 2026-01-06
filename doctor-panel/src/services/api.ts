@@ -1,3 +1,4 @@
+
 // API service for doctor-panel
 
 import { LoginCredentials, LoginResponse, AssignedUser, HealthProfile } from '../types';
@@ -329,4 +330,88 @@ export interface ProgressData {
   bmi: number;
   notes: string;
 }
+
+// Chat types and API methods
+export interface ChatConversation {
+  id: number;
+  userId: number;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+  };
+  lastMessage: string | null;
+  lastMessageAt: string | null;
+  unreadCount: number;
+}
+
+export interface ChatMessage {
+  id: number;
+  conversationId: number;
+  senderId: number;
+  senderType: 'user' | 'member';
+  message: string;
+  read: boolean;
+  createdAt: string;
+}
+
+// Get all conversations for the logged-in member (doctor/dietitian)
+export const getMemberConversations = async (memberId: number): Promise<{ success: boolean; data: ChatConversation[] }> => {
+  return makeAuthenticatedRequest(`/chat/member/${memberId}/conversations`);
+};
+
+// Get messages for a conversation
+export const getMemberChatMessages = async (
+  conversationId: number, 
+  limit?: number, 
+  offset?: number
+): Promise<{ 
+  success: boolean; 
+  data: {
+    messages: ChatMessage[];
+    pagination: {
+      total: number;
+      limit: number;
+      offset: number;
+      hasMore: boolean;
+    };
+  }; 
+}> => {
+  const params = new URLSearchParams();
+  if (limit) params.append('limit', limit.toString());
+  if (offset) params.append('offset', offset.toString());
+  
+  const queryString = params.toString();
+  return makeAuthenticatedRequest(`/chat/member/conversation/${conversationId}/messages${queryString ? '?' + queryString : ''}`);
+};
+
+// Send a message as member (doctor/dietitian)
+export const sendMemberChatMessage = async (
+  memberId: number, 
+  conversationId: number, 
+  message: string
+): Promise<{ 
+  success: boolean; 
+  data: ChatMessage; 
+}> => {
+  return makeAuthenticatedRequest(`/chat/member/conversation/${memberId}/send`, {
+    method: 'POST',
+    body: JSON.stringify({
+      conversationId,
+      message,
+      senderType: 'member'
+    }),
+  });
+};
+
+// Mark messages as read
+export const markMemberChatMessagesAsRead = async (
+  conversationId: number, 
+  senderType: 'user' | 'member'
+): Promise<{ success: boolean; message: string }> => {
+  return makeAuthenticatedRequest(`/chat/member/conversation/${conversationId}/read`, {
+    method: 'PUT',
+    body: JSON.stringify({ senderType }),
+  });
+};
 

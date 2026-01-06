@@ -272,7 +272,33 @@ router.post('/meal-activity/save',
     .withMessage('Date must be a valid ISO date'),
   body('mealType')
     .isString()
-    .isIn(['breakfast', 'mid-morning', 'lunch', 'pre-workout', 'evening-snacks', 'dinner', 'bedtime'])
+    .isIn([
+      'breakfast', 
+      'lunch', 
+      'dinner', 
+      'snacks',
+      'wake up',
+      'mid-morning',
+      'pre-workout',
+      'evening-snacks',
+      'bedtime',
+      'midnight',
+      'brunch',
+      'meal 1',
+      'meal 2',
+      'meal 3',
+      'meal 4',
+      'meal 5',
+      'meal 6',
+      'Wake Up',
+      'Breakfast',
+      'Mid-Morning',
+      'Lunch',
+      'Pre-Workout',
+      'Evening Snacks',
+      'Dinner',
+      'Bed Time'
+    ])
     .withMessage('Meal type must be valid'),
   body('selectedItems')
     .isArray()
@@ -369,6 +395,13 @@ router.post('/diet/save-plan',
     .withMessage('Diet plan must be an object'),
   healthController.saveDietPlan
 );
+
+/**
+ * @route GET /api/health/dashboard/:userId
+ * @desc Get all dashboard data for a user in one call
+ * @access User
+ */
+router.get('/dashboard/:userId', validateUserId, healthController.getDashboardData);
 
 module.exports = router;
 

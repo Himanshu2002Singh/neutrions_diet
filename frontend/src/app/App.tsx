@@ -11,8 +11,6 @@ import { Footer } from './components/Footer';
 import { Dashboard } from './components/Dashboard';
 import { Health_Profile } from './components/dashboard/Health_Profile';
 import { WorkoutPlans } from './components/dashboard/WorkoutPlans';
-import { BMI_Calculator } from './components/dashboard/BMI_Calculator';
-import Referrals from './components/dashboard/Referrals';
 import { LoginModal } from './components/LoginModal';
 import { BMICalculation } from '../types/health';
 import { googleAuthService } from '../services/googleAuth';
@@ -214,24 +212,6 @@ export default function App() {
     </div>
   );
 
-  const AICoachPage = () => (
-    <div className="max-w-7xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">AI Coach Ria</h1>
-      <div className="bg-white rounded-xl shadow-md p-8">
-        <p className="text-gray-600">AI Coach Ria chat interface coming soon...</p>
-      </div>
-    </div>
-  );
-
-  const MealPlanningPage = () => (
-    <div className="max-w-7xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Meal Planning</h1>
-      <div className="bg-white rounded-xl shadow-md p-8">
-        <p className="text-gray-600">Meal planning features coming soon...</p>
-      </div>
-    </div>
-  );
-
   const HealthInsightsPage = () => (
     <div className="max-w-7xl mx-auto">
       <h1 className="text-3xl font-bold text-gray-900 mb-8">Health Insights</h1>
@@ -263,17 +243,15 @@ export default function App() {
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/dashboard" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} />} />
-      <Route path="/dashboard/referrals" element={<Referrals />} />
-      <Route path="/dashboard/bmi-calculator" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} defaultView="bmi-calculator" />} />
-      <Route path="/dashboard/health-profile" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} defaultView="health-profile" />} />
-      <Route path="/dashboard/personalized-diet" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} defaultView="personalized-diet" />} />
-      <Route path="/dashboard/workout-plans" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} defaultView="workout-plans" />} />
-      <Route path="/dashboard/progress-tracking" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} defaultView="progress-tracking" />} />
-      <Route path="/dashboard/ai-coach" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} defaultView="ai-coach" />} />
-      <Route path="/dashboard/meal-planning" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} defaultView="meal-planning" />} />
-      <Route path="/dashboard/health-insights" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} defaultView="health-insights" />} />
-      <Route path="/dashboard/dietitian-support" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} defaultView="dietitian-support" />} />
-      <Route path="/dashboard/weekly-checkins" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} defaultView="weekly-checkins" />} />
+      <Route path="/dashboard/home" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} />} />
+      <Route path="/dashboard/referrals" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} />} />
+      <Route path="/dashboard/health-profile" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} />} />
+      <Route path="/dashboard/personalized-diet" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} />} />
+      <Route path="/dashboard/workout-plans" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} />} />
+      <Route path="/dashboard/progress-tracking" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} />} />
+      <Route path="/dashboard/health-insights" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} />} />
+      <Route path="/dashboard/dietitian-support" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} />} />
+      <Route path="/dashboard/weekly-checkins" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} />} />
       <Route path="/health-profile" element={<HealthProfilePage />} />
     </Routes>
   );

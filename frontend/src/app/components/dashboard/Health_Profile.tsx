@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -7,13 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Textarea } from '../ui/textarea';
 import { Badge } from '../ui/badge';
 import { Separator } from '../ui/separator';
-import { User, Heart, Target, Activity, Save, RotateCcw } from 'lucide-react';
+import { Heart, Target, Activity, Save, RotateCcw, User } from 'lucide-react';
 import { calculateAllHealthMetrics } from '../../../utils/healthCalculations';
 import { BMICalculation } from '../../../types/health';
 
 interface Health_ProfileProps {
   initialData?: {
-    name?: string;
     height?: string;
     weight?: string;
     age?: string;
@@ -28,7 +27,6 @@ interface Health_ProfileProps {
 
 export function Health_Profile({ initialData = {}, onProfileUpdate }: Health_ProfileProps) {
   const [formData, setFormData] = useState({
-    name: initialData.name || '',
     height: initialData.height || '170',
     weight: initialData.weight || '70',
     age: initialData.age || '25',
@@ -41,6 +39,89 @@ export function Health_Profile({ initialData = {}, onProfileUpdate }: Health_Pro
 
   const [bmiCalculation, setBmiCalculation] = useState<BMICalculation | null>(null);
   const [isDirty, setIsDirty] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Get userId from localStorage
+  const getUserId = useCallback(() => {
+    let userId = localStorage.getItem('userId');
+    if (userId) return parseInt(userId);
+
+    const savedUser = localStorage.getItem('neutrion-user');
+    if (savedUser) {
+      try {
+        const userData = JSON.parse(savedUser);
+        return userData.id || userData.userId || null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }, []);
+
+  // Load existing data from localStorage on mount
+  useEffect(() => {
+    const loadExistingData = async () => {
+      const userId = getUserId();
+      
+      // Try to load from localStorage first
+      const localData = localStorage.getItem('neutrion-health-profile');
+      if (localData) {
+        try {
+          const parsed = JSON.parse(localData);
+          setFormData(prev => ({
+            height: parsed.height || prev.height,
+            weight: parsed.weight || prev.weight,
+            age: parsed.age || prev.age,
+            gender: parsed.gender || prev.gender,
+            activityLevel: parsed.activityLevel || prev.activityLevel,
+            goals: parsed.goals || prev.goals,
+            medicalConditions: parsed.medicalConditions || prev.medicalConditions,
+            allergies: parsed.allergies || prev.allergies,
+          }));
+          setIsLoading(false);
+          return;
+        } catch (e) {
+          console.error('Error parsing local health profile:', e);
+        }
+      }
+
+      // If user is logged in, try to fetch from backend
+      if (userId) {
+        try {
+          const token = localStorage.getItem('neutrion_token');
+          const response = await fetch(`http://localhost:3002/api/health/profile/${userId}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.data) {
+              const profile = data.data;
+              setFormData(prev => ({
+                height: profile.height?.toString() || prev.height,
+                weight: profile.weight?.toString() || prev.weight,
+                age: profile.age?.toString() || prev.age,
+                gender: profile.gender || prev.gender,
+                activityLevel: profile.activityLevel || prev.activityLevel,
+                goals: profile.goals || prev.goals,
+                medicalConditions: profile.medicalConditions || prev.medicalConditions,
+                allergies: profile.allergies || prev.allergies,
+              }));
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching health profile from backend:', error);
+        }
+      }
+
+      setIsLoading(false);
+    };
+
+    loadExistingData();
+  }, [getUserId]);
 
   // Calculate BMI when form data changes
   useEffect(() => {
@@ -75,7 +156,7 @@ export function Health_Profile({ initialData = {}, onProfileUpdate }: Health_Pro
     setIsDirty(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const profileData = {
       ...formData,
       bmiCalculation,
@@ -84,6 +165,42 @@ export function Health_Profile({ initialData = {}, onProfileUpdate }: Health_Pro
 
     // Save to localStorage
     localStorage.setItem('neutrion-health-profile', JSON.stringify(profileData));
+
+    // Also try to save to backend if user is logged in
+    const userId = getUserId();
+    if (userId) {
+      try {
+        const token = localStorage.getItem('neutrion_token');
+        // Map activity level to match backend expected values
+        const activityLevelMap: Record<string, string> = {
+          'sedentary': 'sedentary',
+          'lightly-active': 'light',
+          'moderately-active': 'moderate',
+          'very-active': 'active',
+          'extremely-active': 'very_active'
+        };
+
+        await fetch(`http://localhost:3002/api/health/submit/${userId}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            weight: parseFloat(formData.weight),
+            height: parseFloat(formData.height),
+            age: parseInt(formData.age),
+            gender: formData.gender,
+            activityLevel: activityLevelMap[formData.activityLevel] || 'moderate',
+            medicalConditions: formData.medicalConditions,
+            allergies: formData.allergies,
+            goals: JSON.stringify(formData.goals),
+          }),
+        });
+      } catch (error) {
+        console.error('Error saving health profile to backend:', error);
+      }
+    }
     
     // Notify parent component
     if (onProfileUpdate) {
@@ -95,7 +212,6 @@ export function Health_Profile({ initialData = {}, onProfileUpdate }: Health_Pro
 
   const handleReset = () => {
     setFormData({
-      name: '',
       height: '170',
       weight: '70',
       age: '25',
@@ -117,6 +233,27 @@ export function Health_Profile({ initialData = {}, onProfileUpdate }: Health_Pro
     { value: 'better-health', label: 'Better Health', color: 'bg-[#C5E17A] text-black' },
   ];
 
+  // Show loading state while fetching existing data
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <User className="w-6 h-6 text-[#C5E17A]" />
+              Health Profile
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#C5E17A]"></div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Profile Header */}
@@ -130,15 +267,6 @@ export function Health_Profile({ initialData = {}, onProfileUpdate }: Health_Pro
         <CardContent className="space-y-6">
           {/* Basic Information */}
           <div className="grid gap-6 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Full Name</Label>
-              <Input
-                placeholder="Enter your name"
-                value={formData.name}
-                onChange={(e) => handleInputChange('name', e.target.value)}
-              />
-            </div>
-            
             <div className="space-y-2">
               <Label>Age</Label>
               <Input

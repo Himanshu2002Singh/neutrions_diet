@@ -5,6 +5,7 @@ const GOOGLE_CLIENT_ID = '569194456128-o6j4g39gnlkooobeigim22jum5f13gp6.apps.goo
 const API_URL = 'http://localhost:3002';
 
 interface GoogleUser {
+  id?: number;
   name: string;
   email: string;
   avatar: string;
@@ -98,6 +99,7 @@ class GoogleAuthService {
 
         if (data.success && data.data) {
           const user: GoogleUser = {
+            id: data.data.user.id,
             name: data.data.user.name,
             email: data.data.user.email,
             avatar: data.data.user.avatar,
@@ -108,7 +110,7 @@ class GoogleAuthService {
           localStorage.setItem('neutrion-auth-token', data.data.token);
           localStorage.setItem('google_access_token', response.credential);
           
-          // IMPORTANT: Store userId for health form submissions
+          // IMPORTANT: Store userId for health form submissions (also keep for backwards compatibility)
           localStorage.setItem('userId', String(data.data.user.id));
           console.log('✅ User logged in with ID:', data.data.user.id);
 

@@ -1831,7 +1831,7 @@ class HealthController {
     }
   }
 
-  /**
+/**
    * Save or update a diet plan for a user (for doctors/admin)
    * POST /api/diet/save-plan
    */
@@ -1899,6 +1899,185 @@ class HealthController {
       res.status(500).json({
         success: false,
         message: 'Failed to save diet plan',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Get all dashboard data for a user in one call
+   * GET /api/health/dashboard/:userId
+   */
+  async getDashboardData(req, res) {
+    try {
+      const { userId } = req.params;
+      const userIdInt = parseInt(userId);
+
+      const { User, HealthProfile, BMICalculation, DietPlan, DailyMealActivity } = require('../models');
+
+      // 1. Get user data - use correct column names from model
+      const user = await User.findByPk(userIdInt, {
+        attributes: ['id', 'email', 'firstName', 'lastName', 'phone', 'googleAvatar', 'assignedDieticianId', 'assignedAt']
+      });
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      const userData = {
+        id: user.id,
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        phone: user.phone || null,
+        avatar: user.googleAvatar || null,
+        joinedDate: user.createdAt ? new Date(user.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+      };
+
+      // 2. Get health profile
+      const healthProfile = await HealthProfile.findOne({
+        where: {
+          userId: userIdInt,
+          isCurrent: true
+        }
+      });
+
+      let healthData = null;
+      if (healthProfile) {
+        healthData = {
+          age: healthProfile.age,
+          weight: parseFloat(healthProfile.weight),
+          height: parseFloat(healthProfile.height),
+          gender: healthProfile.gender,
+          activityLevel: healthProfile.activityLevel,
+          medicalConditions: healthProfile.medicalConditions || [],
+          goals: healthProfile.goals || [],
+          targetWeight: null // Will be calculated from goals or separate field
+        };
+      }
+
+      // 3. Get BMI calculation
+      const bmiCalculation = await BMICalculation.findOne({
+        where: { userId: userIdInt },
+        order: [['createdAt', 'DESC']]
+      });
+
+      let bmiData = null;
+      if (bmiCalculation) {
+        bmiData = {
+          bmi: parseFloat(bmiCalculation.bmi),
+          category: bmiCalculation.category,
+          bmr: parseFloat(bmiCalculation.bmr),
+          dailyCalories: parseFloat(bmiCalculation.dailyCalories)
+        };
+        // Update target weight from BMI if available
+        if (healthData && bmiCalculation.idealWeight) {
+          healthData.targetWeight = bmiCalculation.idealWeight[1]; // Upper ideal weight
+        }
+      }
+
+      // 4. Get assigned doctor/dietitian info
+      let assignedDoctor = null;
+      if (user.assignedDieticianId) {
+        const doctor = await User.findByPk(user.assignedDieticianId, {
+          attributes: ['id', 'firstName', 'lastName', 'email', 'phone', 'role']
+        });
+        
+        if (doctor) {
+          assignedDoctor = {
+            id: doctor.id,
+            name: `${doctor.firstName} ${doctor.lastName}`,
+            email: doctor.email,
+            phone: doctor.phone || null,
+            role: doctor.role,
+            assignedAt: user.assignedAt
+          };
+        }
+      }
+
+      // 5. Get current diet plan
+      const dietPlan = await DietPlan.findOne({
+        where: {
+          userId: userIdInt,
+          isCurrent: true,
+          isActive: true
+        }
+      });
+
+      let dietPlanData = null;
+      if (dietPlan) {
+        dietPlanData = {
+          id: dietPlan.id,
+          name: dietPlan.planName,
+          goals: dietPlan.goals || [],
+          nutritionTargets: dietPlan.nutritionTargets || null,
+          startDate: dietPlan.createdAt,
+          status: 'active'
+        };
+      }
+
+      // 6. Get meal activities for last 7 days
+      const today = new Date();
+      const sevenDaysAgo = new Date(today);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
+      const mealActivities = await DailyMealActivity.findAll({
+        where: {
+          userId: userIdInt,
+          date: {
+            [require('sequelize').Op.between]: [
+              sevenDaysAgo.toISOString().split('T')[0],
+              today.toISOString().split('T')[0]
+            ]
+          }
+        },
+        order: [['date', 'ASC'], ['mealType', 'ASC']]
+      });
+
+      // Group meal activities by date
+      const mealProgressByDate = {};
+      mealActivities.forEach(activity => {
+        if (!mealProgressByDate[activity.date]) {
+          mealProgressByDate[activity.date] = [];
+        }
+        mealProgressByDate[activity.date].push({
+          mealType: activity.mealType,
+          items: activity.selectedItems,
+          notes: activity.notes
+        });
+      });
+
+      // Calculate weekly stats
+      const daysWithMeals = Object.keys(mealProgressByDate).length;
+      const totalMealsTracked = mealActivities.length;
+      const avgMealsPerDay = daysWithMeals > 0 ? (totalMealsTracked / Math.min(daysWithMeals, 7)).toFixed(1) : 0;
+
+      const weeklyProgress = {
+        totalMealsTracked,
+        daysWithMeals,
+        avgMealsPerDay,
+        byDate: mealProgressByDate
+      };
+
+      res.status(200).json({
+        success: true,
+        data: {
+          user: userData,
+          health: healthData,
+          bmi: bmiData,
+          assignedDoctor,
+          dietPlan: dietPlanData,
+          weeklyProgress
+        }
+      });
+
+    } catch (error) {
+      console.error('Get dashboard data error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to get dashboard data',
         error: error.message
       });
     }

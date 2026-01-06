@@ -1,9 +1,7 @@
-
 import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Sidebar } from './dashboard/Sidebar';
 import { DashboardHeader } from './dashboard/DashboardHeader';
-import { FeaturedMenu } from './dashboard/FeaturedMenu';
-import { AllMenuSection } from './dashboard/AllMenuSection';
 import { RightSidebar } from './dashboard/RightSidebar';
 
 import { BMI_Calculator } from './dashboard/BMI_Calculator';
@@ -11,7 +9,12 @@ import { Diet_Generator } from './dashboard/Diet_Generator';
 import { Health_Profile } from './dashboard/Health_Profile';
 import { WorkoutPlans } from './dashboard/WorkoutPlans';
 import { PersonalizedDietView } from './dashboard/PersonalizedDietView';
+import { WeeklyProgress } from './dashboard/WeeklyProgress';
+import Referrals from './dashboard/Referrals';
 import { BMICalculation } from '../../types/health';
+import DashboardHome from './dashboard/DashboardHome';
+import HealthInsights from './dashboard/HealthInsights';
+import DietitianSupport from './dashboard/DietitianSupport';
 
 interface User {
   name: string;
@@ -27,10 +30,44 @@ interface DashboardProps {
 }
 
 export function Dashboard({ initialProfileData, onLogout, defaultView, user }: DashboardProps) {
-  const [activeView, setActiveView] = useState(defaultView || 'featured');
+  const navigate = useNavigate();
+  const location = useLocation();
   const [bmiCalculation, setBmiCalculation] = useState<BMICalculation | null>(null);
   const [medicalConditions, setMedicalConditions] = useState('');
   const [dashboardUser, setDashboardUser] = useState<User | null>(user || null);
+  const [headerTitle, setHeaderTitle] = useState('Dashboard');
+
+  // Map routes to view names
+  const routeToViewMap: Record<string, string> = {
+    '/dashboard': 'home',
+    '/dashboard/home': 'home',
+    '/dashboard/referrals': 'referrals',
+    '/dashboard/health-profile': 'health-profile',
+    '/dashboard/personalized-diet': 'personalized-diet',
+    '/dashboard/workout-plans': 'workout-plans',
+    '/dashboard/progress-tracking': 'progress-tracking',
+    '/dashboard/health-insights': 'health-insights',
+    '/dashboard/dietitian-support': 'dietitian-support',
+    '/dashboard/bmi-calculator': 'bmi-calculator',
+    '/dashboard/diet-generator': 'diet-generator',
+  };
+
+  // Get active view from current route
+  const getActiveViewFromRoute = () => {
+    const path = location.pathname;
+    return routeToViewMap[path] || 'home';
+  };
+
+  const [activeView, setActiveView] = useState(getActiveViewFromRoute);
+
+  // Update active view when route changes
+  useEffect(() => {
+    const newView = getActiveViewFromRoute();
+    if (newView !== activeView) {
+      setActiveView(newView);
+      setHeaderTitle('Dashboard');
+    }
+  }, [location.pathname]);
 
   // Update user state when prop changes or read from localStorage on mount
   useEffect(() => {
@@ -49,42 +86,43 @@ export function Dashboard({ initialProfileData, onLogout, defaultView, user }: D
     }
   }, [user]);
 
-  // Update active view when defaultView prop changes
-  useEffect(() => {
-    if (defaultView) {
-      setActiveView(defaultView);
-    }
-  }, [defaultView]);
-
   // Initialize with profile data if provided
   useEffect(() => {
     if (initialProfileData?.bmiCalculation) {
       setBmiCalculation(initialProfileData.bmiCalculation);
       setMedicalConditions(initialProfileData.medicalConditions || '');
-      if (!defaultView) {
-        setActiveView('diet-generator'); // Auto-navigate to diet generator only if no defaultView
-      }
     }
-  }, [initialProfileData, defaultView]);
+  }, [initialProfileData]);
 
   const handleViewChange = (view: string) => {
-    setActiveView(view);
+    // Map view names to routes
+    const viewToRouteMap: Record<string, string> = {
+      'home': '/dashboard',
+      'referrals': '/dashboard/referrals',
+      'health-profile': '/dashboard/health-profile',
+      'personalized-diet': '/dashboard/personalized-diet',
+      'workout-plans': '/dashboard/workout-plans',
+      'progress-tracking': '/dashboard/progress-tracking',
+      'health-insights': '/dashboard/health-insights',
+      'dietitian-support': '/dashboard/dietitian-support',
+      'bmi-calculator': '/dashboard/bmi-calculator',
+      'diet-generator': '/dashboard/diet-generator',
+    };
+    
+    const route = viewToRouteMap[view] || '/dashboard';
+    navigate(route);
   };
-
 
   const handleBMIComplete = (calculation: BMICalculation, conditions: string) => {
     setBmiCalculation(calculation);
     setMedicalConditions(conditions);
-    
-    // Auto-navigate to diet generator after BMI calculation
-    if (activeView === 'bmi-calculator') {
-      setActiveView('diet-generator');
-    }
   };
 
 
   const renderMainContent = () => {
     switch (activeView) {
+      case 'home':
+        return <DashboardHome />;
       case 'bmi-calculator':
         return (
           <BMI_Calculator 
@@ -119,14 +157,13 @@ export function Dashboard({ initialProfileData, onLogout, defaultView, user }: D
           <PersonalizedDietView />
         );
       case 'progress-tracking':
-        return (
-          <div className="max-w-7xl mx-auto">
-            <h1 className="text-3xl font-bold text-gray-900 mb-8">Progress Tracking</h1>
-            <div className="bg-white rounded-xl shadow-md p-8">
-              <p className="text-gray-600">Progress tracking features coming soon...</p>
-            </div>
-          </div>
-        );
+        return <WeeklyProgress />;
+      case 'referrals':
+        return <Referrals onHeaderChange={setHeaderTitle} />;
+      case 'health-insights':
+        return <HealthInsights />;
+      case 'dietitian-support':
+        return <DietitianSupport />;
       case 'ai-coach':
         return (
           <div className="max-w-7xl mx-auto">
@@ -145,41 +182,9 @@ export function Dashboard({ initialProfileData, onLogout, defaultView, user }: D
             </div>
           </div>
         );
-      case 'health-insights':
-        return (
-          <div className="max-w-7xl mx-auto">
-            <h1 className="text-3xl font-bold text-gray-900 mb-8">Health Insights</h1>
-            <div className="bg-white rounded-xl shadow-md p-8">
-              <p className="text-gray-600">Health insights and analytics coming soon...</p>
-            </div>
-          </div>
-        );
-      case 'dietitian-support':
-        return (
-          <div className="max-w-7xl mx-auto">
-            <h1 className="text-3xl font-bold text-gray-900 mb-8">Dietitian Support</h1>
-            <div className="bg-white rounded-xl shadow-md p-8">
-              <p className="text-gray-600">Dietitian support and consultation booking coming soon...</p>
-            </div>
-          </div>
-        );
-      case 'weekly-checkins':
-        return (
-          <div className="max-w-7xl mx-auto">
-            <h1 className="text-3xl font-bold text-gray-900 mb-8">Weekly Check-ins</h1>
-            <div className="bg-white rounded-xl shadow-md p-8">
-              <p className="text-gray-600">Weekly check-in features coming soon...</p>
-            </div>
-          </div>
-        );
       case 'featured':
       default:
-        return (
-          <>
-            <FeaturedMenu />
-            <AllMenuSection />
-          </>
-        );
+        return <DashboardHome />;
     }
   };
 
@@ -187,7 +192,7 @@ export function Dashboard({ initialProfileData, onLogout, defaultView, user }: D
     <div className="bg-gray-50 min-h-screen">
       <Sidebar onLogout={onLogout} />
       <div className="lg:ml-64 ">
-        <DashboardHeader user={dashboardUser} />
+        <DashboardHeader user={dashboardUser} title={headerTitle} />
         <main className="p-4 lg:p-8">
           {renderMainContent()}
         </main>
@@ -198,3 +203,4 @@ export function Dashboard({ initialProfileData, onLogout, defaultView, user }: D
     </div>
   );
 }
+

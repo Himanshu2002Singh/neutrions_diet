@@ -540,7 +540,7 @@ class ApiService {
     return this.makeRequest('/api/diet/files/featured');
   }
 
-  // Get personalized diet plan for user based on their profile
+// Get personalized diet plan for user based on their profile
   async getPersonalizedDietPlan(userId: number): Promise<{
     success: boolean;
     data: {
@@ -596,6 +596,169 @@ class ApiService {
     };
   }> {
     return this.makeRequest(`/api/health/diet/personalized/${userId}`);
+  }
+
+  // Get all dashboard data for a user in one call
+  async getDashboardData(userId: number): Promise<{
+    success: boolean;
+    data: {
+      user: {
+        id: number;
+        name: string;
+        email: string;
+        phone: string | null;
+        avatar: string | null;
+        joinedDate: string;
+      };
+      health: {
+        age: number;
+        weight: number;
+        height: number;
+        gender: string;
+        activityLevel: string;
+        medicalConditions: string[];
+        goals: string[];
+        targetWeight: number | null;
+      } | null;
+      bmi: {
+        bmi: number;
+        category: string;
+        bmr: number;
+        dailyCalories: number;
+      } | null;
+      assignedDoctor: {
+        id: number;
+        name: string;
+        email: string;
+        phone: string | null;
+        role: string;
+        assignedAt: string | null;
+      } | null;
+      dietPlan: {
+        id: number;
+        name: string;
+        goals: string[];
+        nutritionTargets: {
+          calories: string;
+          protein: string;
+          fiber: string;
+          fat: string;
+          carbs: string;
+        } | null;
+        startDate: string;
+        status: string;
+      } | null;
+      weeklyProgress: {
+        totalMealsTracked: number;
+        daysWithMeals: number;
+        avgMealsPerDay: string;
+        byDate: Record<string, Array<{
+          mealType: string;
+          items: string[];
+          notes: string | null;
+        }>>;
+      };
+    };
+  }> {
+    return this.makeRequest(`/api/health/dashboard/${userId}`);
+  }
+
+  // ============ Chat API Methods ============
+
+  // Get chat with assigned dietitian for a user
+  async getUserDietitianChat(userId: number): Promise<{
+    success: boolean;
+    data: {
+      conversation: {
+        id: number;
+        userId: number;
+        memberId: number;
+        createdAt: string;
+      };
+      dietitian: {
+        id: number;
+        name: string;
+        email: string;
+        category: string;
+        phone: string | null;
+      };
+      unreadCount: number;
+    };
+  }> {
+    return this.makeRequest(`/api/chat/user/${userId}/dietitian`);
+  }
+
+  // Get messages for a conversation
+  async getChatMessages(conversationId: number, limit?: number, offset?: number): Promise<{
+    success: boolean;
+    data: {
+      messages: Array<{
+        id: number;
+        conversationId: number;
+        senderId: number;
+        senderType: 'user' | 'member';
+        message: string;
+        read: boolean;
+        createdAt: string;
+      }>;
+      pagination: {
+        total: number;
+        limit: number;
+        offset: number;
+        hasMore: boolean;
+      };
+    };
+  }> {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit.toString());
+    if (offset) params.append('offset', offset.toString());
+    
+    const queryString = params.toString();
+    return this.makeRequest(`/api/chat/user/conversation/${conversationId}/messages${queryString ? '?' + queryString : ''}`);
+  }
+
+  // Send a message
+  async sendChatMessage(userId: number, conversationId: number, message: string): Promise<{
+    success: boolean;
+    data: {
+      id: number;
+      conversationId: number;
+      senderId: number;
+      senderType: 'user' | 'member';
+      message: string;
+      read: boolean;
+      createdAt: string;
+    };
+  }> {
+    return this.makeRequest(`/api/chat/user/conversation/${userId}/send`, {
+      method: 'POST',
+      body: JSON.stringify({
+        conversationId,
+        message,
+        senderType: 'user'
+      }),
+    });
+  }
+
+  // Mark messages as read
+  async markChatMessagesAsRead(conversationId: number, senderType: 'user' | 'member'): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    return this.makeRequest(`/api/chat/user/conversation/${conversationId}/read`, {
+      method: 'PUT',
+      body: JSON.stringify({ senderType }),
+    });
+  }
+
+  // Get unread message count for a user
+  async getUnreadChatCount(userId: number): Promise<{
+    success: boolean;
+    data: {
+      unreadCount: number;
+    };
+  }> {
+    return this.makeRequest(`/api/chat/user/${userId}/unread-count`);
   }
 }
 

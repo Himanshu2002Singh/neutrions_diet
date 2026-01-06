@@ -1,4 +1,4 @@
-import { LayoutDashboard, Calendar, MessageSquare, Utensils, ClipboardList, BookOpen, TrendingUp, Dumbbell, Activity, Calculator, Target, LogOut, Gift } from 'lucide-react';
+import { LayoutDashboard, Calendar, Utensils, ClipboardList, TrendingUp, Dumbbell, Activity, Target, LogOut, Gift } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 interface SidebarProps {
@@ -12,13 +12,10 @@ export function Sidebar({ onLogout }: SidebarProps) {
   const menuItems = [
     { icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', path: '/dashboard' },
     { icon: <Gift className="w-5 h-5" />, label: 'Referrals', path: '/dashboard/referrals' },
-    { icon: <Calculator className="w-5 h-5" />, label: 'BMI Calculator', path: '/dashboard/bmi-calculator' },
     { icon: <Activity className="w-5 h-5" />, label: 'Update Health Profile', path: '/dashboard/health-profile' },
     { icon: <Utensils className="w-5 h-5" />, label: 'Personalized Diet', path: '/dashboard/personalized-diet' },
     { icon: <Dumbbell className="w-5 h-5" />, label: 'Workout Plans', path: '/dashboard/workout-plans' },
     { icon: <TrendingUp className="w-5 h-5" />, label: 'Progress Tracking', path: '/dashboard/progress-tracking' },
-    { icon: <MessageSquare className="w-5 h-5" />, label: 'AI Coach Ria', badge: 1, path: '/dashboard/ai-coach' },
-    { icon: <BookOpen className="w-5 h-5" />, label: 'Meal Planning', path: '/dashboard/meal-planning' },
     { icon: <Activity className="w-5 h-5" />, label: 'Health Insights', path: '/dashboard/health-insights' },
     { icon: <Calendar className="w-5 h-5" />, label: 'Dietitian Support', path: '/dashboard/dietitian-support' },
     { icon: <ClipboardList className="w-5 h-5" />, label: 'Weekly Check-ins', path: '/dashboard/weekly-checkins' },

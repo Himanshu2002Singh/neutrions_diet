@@ -8,9 +8,10 @@ interface User {
 
 interface DashboardHeaderProps {
   user?: User | null;
+  title?: string;
 }
 
-export function DashboardHeader({ user }: DashboardHeaderProps) {
+export function DashboardHeader({ user, title }: DashboardHeaderProps) {
   // Use user data if available, otherwise show default
   const displayName = user?.name || 'Adam Vasyliev';
   const displayAvatar = user?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop';
@@ -23,7 +24,7 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
-        <h2 className="text-xl lg:text-2xl font-bold">Dashboard</h2>
+        <h2 className="text-xl lg:text-2xl font-bold">{title || 'Dashboard'}</h2>
       </div>
       
       <div className="flex items-center gap-2 lg:gap-4">

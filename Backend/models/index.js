@@ -10,6 +10,8 @@ const DietFile = require('./DietFile');
 const DietPlan = require('./DietPlan');
 const Referral = require('./Referral');
 const DailyMealActivity = require('./DailyMealActivity');
+const ChatConversation = require('./ChatConversation');
+const ChatMessage = require('./ChatMessage');
 
 // Define associations
 User.hasMany(HealthProfile, { foreignKey: 'userId', as: 'healthProfiles' });
@@ -75,6 +77,23 @@ HealthProfile.addHook('beforeCreate', 'setCurrentFlag', async (healthProfile) =>
   }
 });
 
+// Chat associations
+// Conversation belongs to a user (the patient)
+User.hasMany(ChatConversation, { foreignKey: 'userId', as: 'chatConversations' });
+ChatConversation.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+// Conversation belongs to a member (doctor/dietitian)
+User.hasMany(ChatConversation, { foreignKey: 'memberId', as: 'memberConversations' });
+ChatConversation.belongsTo(User, { foreignKey: 'memberId', as: 'member' });
+
+// Messages belong to a conversation
+ChatConversation.hasMany(ChatMessage, { foreignKey: 'conversationId', as: 'messages' });
+ChatMessage.belongsTo(ChatConversation, { foreignKey: 'conversationId', as: 'conversation' });
+
+// Messages belong to a sender (either user or member)
+User.hasMany(ChatMessage, { foreignKey: 'senderId', as: 'sentMessages' });
+ChatMessage.belongsTo(User, { foreignKey: 'senderId', as: 'sender' });
+
 module.exports = {
   sequelize,
   User,
@@ -85,5 +104,7 @@ module.exports = {
   DietFile,
   DietPlan,
   Referral,
-  DailyMealActivity
+  DailyMealActivity,
+  ChatConversation,
+  ChatMessage
 };
