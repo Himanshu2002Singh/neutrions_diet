@@ -80,6 +80,20 @@ export interface ReferralStats {
   totalReferredUsers: number;
 }
 
+// Food item data interface for meal logging
+export interface FoodItemData {
+  name: string;
+  portion: string;
+  imageUrl?: string;
+  calories: number;
+  macros?: {
+    protein: number;
+    carbs: number;
+    fats: number;
+  };
+  notes?: string;
+}
+
 export interface UserReferrals {
   referralCode: string;
   referralLink: string;
@@ -404,7 +418,7 @@ class ApiService {
   async saveMealActivity(userId: number, data: {
     date: string;
     mealType: string;
-    selectedItems: string[];
+    selectedItems: FoodItemData[];
     notes?: string;
   }): Promise<{
     success: boolean;
@@ -414,8 +428,9 @@ class ApiService {
       userId: number;
       date: string;
       mealType: string;
-      selectedItems: string[];
+      selectedItems: FoodItemData[];
       notes: string | null;
+      totalCalories?: number;
     };
   }> {
     return this.makeRequest('/api/health/meal-activity/save', {
@@ -432,7 +447,7 @@ class ApiService {
       date: string;
       activities: Record<string, {
         id: number;
-        selectedItems: string[];
+        selectedItems: FoodItemData[];
         notes: string | null;
         createdAt: string;
         updatedAt: string;
@@ -451,7 +466,7 @@ class ApiService {
       endDate: string;
       activitiesByDate: Record<string, Record<string, {
         id: number;
-        selectedItems: string[];
+        selectedItems: FoodItemData[];
         notes: string | null;
         createdAt: string;
         updatedAt: string;

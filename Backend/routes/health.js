@@ -403,5 +403,46 @@ router.post('/diet/save-plan',
  */
 router.get('/dashboard/:userId', validateUserId, healthController.getDashboardData);
 
+// ============================================
+// DOCTOR PANEL PROGRESS REPORT ROUTES
+// ============================================
+
+/**
+ * @route GET /api/health/doctor/user/:userId/meal-activities
+ * @desc Get user's meal activities for a date range (for doctor progress report)
+ * @access Doctor/Dietician
+ */
+router.get('/doctor/user/:userId/meal-activities', authenticateAdmin, validateUserId,
+  query('startDate')
+    .optional()
+    .isISO8601()
+    .withMessage('Start date must be a valid ISO date'),
+  query('endDate')
+    .optional()
+    .isISO8601()
+    .withMessage('End date must be a valid ISO date'),
+  healthController.getDoctorUserMealActivities
+);
+
+/**
+ * @route GET /api/health/doctor/user/:userId/diet-analysis
+ * @desc Get diet compliance analysis for a user (for doctor progress report)
+ * @access Doctor/Dietician
+ */
+router.get('/doctor/user/:userId/diet-analysis', authenticateAdmin, validateUserId,
+  query('period')
+    .optional()
+    .isIn(['day', 'week', 'month'])
+    .withMessage('Period must be day, week, or month'),
+  healthController.getDoctorUserDietAnalysis
+);
+
+/**
+ * @route GET /api/health/doctor/user/:userId/progress-summary
+ * @desc Get progress summary for all assigned users (for doctor dashboard)
+ * @access Doctor/Dietician
+ */
+router.get('/doctor/progress-summary', authenticateAdmin, healthController.getDoctorProgressSummary);
+
 module.exports = router;
 

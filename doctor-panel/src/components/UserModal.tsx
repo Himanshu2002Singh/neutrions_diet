@@ -1,14 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { X, User, Scale, Ruler, Activity, Target, Heart, Clock, AlertCircle, CheckCircle, Loader2, FileText, Download, Trash2 } from 'lucide-react';
-import { AssignedUser, getUserDietFiles, downloadDietFile, deleteDietFile, DietFile } from '../services/api';
+import { AssignedUser, getUserDietFiles, downloadDietFile, deleteDietFile } from '../services/api';
+import type { DietFile } from '../services/api';
 import DietUploadModal from './DietUploadModal';
+
+// Helper function to format numeric values safely
+function formatNumericValue(value: number | string | null | undefined, decimals: number = 1): string {
+  if (value === null || value === undefined) return 'N/A';
+  const numValue = typeof value === 'string' ? parseFloat(value) : value;
+  if (isNaN(numValue)) return 'N/A';
+  return numValue.toFixed(decimals);
+}
 
 interface UserDetailsModalProps {
   user: AssignedUser;
   userDetails: any;
   loading: boolean;
   onClose: () => void;
-  onUploadComplete: () => void;
+  onUploadComplete?: () => void;
 }
 
 function UserDetailsModal({ user, userDetails, loading, onClose, onUploadComplete }: UserDetailsModalProps) {
@@ -177,7 +186,7 @@ function UserDetailsModal({ user, userDetails, loading, onClose, onUploadComplet
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Ideal Weight Range</span>
                       <span className="font-bold text-blue-600">
-                        {healthProfile?.idealWeightMin?.toFixed(1) || 'N/A'} - {healthProfile?.idealWeightMax?.toFixed(1) || 'N/A'} kg
+                        {formatNumericValue(healthProfile?.idealWeightMin, 1)} - {formatNumericValue(healthProfile?.idealWeightMax, 1)} kg
                       </span>
                     </div>
                   </div>
@@ -191,7 +200,7 @@ function UserDetailsModal({ user, userDetails, loading, onClose, onUploadComplet
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">BMI</span>
-                      <span className="font-bold text-purple-600">{healthProfile?.bmi?.toFixed(1) || 'N/A'}</span>
+                      <span className="font-bold text-purple-600">{formatNumericValue(healthProfile?.bmi, 1)}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-gray-600">Category:</span>
@@ -340,7 +349,7 @@ function UserDetailsModal({ user, userDetails, loading, onClose, onUploadComplet
                     onClick={() => setShowUploadModal(true)}
                     className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm flex items-center gap-2"
                   >
-                    <UploadIcon size={16} />
+                    <FileText size={16} />
                     Upload Diet
                   </button>
                 </div>
@@ -404,6 +413,7 @@ function UserDetailsModal({ user, userDetails, loading, onClose, onUploadComplet
                 )}
               </div>
 
+              {/* Assignment Info */}
               {data.assignedAt && (
                 <div className="bg-gray-50 rounded-lg p-4 flex items-center gap-2 text-sm text-gray-500">
                   <Clock size={16} />
@@ -414,6 +424,7 @@ function UserDetailsModal({ user, userDetails, loading, onClose, onUploadComplet
           )}
         </div>
 
+        {/* Footer */}
         <div className="sticky bottom-0 bg-white border-t px-6 py-4 flex justify-end gap-3">
           <button 
             onClick={onClose}
@@ -429,36 +440,28 @@ function UserDetailsModal({ user, userDetails, loading, onClose, onUploadComplet
             Upload Diet Plan
           </button>
         </div>
-      </div>
 
+      {/* Diet Upload Modal */}
       {showUploadModal && (
         <DietUploadModal
           userId={user.id}
           userName={user.userName}
           onClose={() => setShowUploadModal(false)}
           onUploadComplete={() => {
+            // Refresh diet files
             getUserDietFiles(user.id).then(response => {
               if (response.success && response.data) {
                 setDietFiles(response.data);
               }
             });
-            onUploadComplete();
+            // Notify parent
+            onUploadComplete?.();
           }}
         />
       )}
+      </div>
     </div>
   );
 }
 
-function UploadIcon({ size }: { size: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="17 8 12 3 7 8" />
-      <line x1="12" y1="3" x2="12" y2="15" />
-    </svg>
-  );
-}
-
 export default UserDetailsModal;
-

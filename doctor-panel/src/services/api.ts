@@ -1,7 +1,22 @@
 
+
 // API service for doctor-panel
 
-import { LoginCredentials, LoginResponse, AssignedUser, HealthProfile } from '../types';
+// Diet file interface - defined at top to avoid TypeScript hoisting issues
+export interface DietFile {
+  id: number;
+  userId: number;
+  doctorId: number;
+  fileName: string;
+  originalName: string;
+  filePath: string;
+  fileSize: number;
+  mimeType: string;
+  description: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
 
 const API_BASE_URL = 'http://localhost:3002/api';
 
@@ -217,22 +232,6 @@ export const deleteDietFile = async (fileId: number): Promise<{ success: boolean
   return data;
 };
 
-// Diet file interface
-export interface DietFile {
-  id: number;
-  userId: number;
-  doctorId: number;
-  fileName: string;
-  originalName: string;
-  filePath: string;
-  fileSize: number;
-  mimeType: string;
-  description: string | null;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
 // Auth types for doctor-panel
 
 export interface AdminUser {
@@ -414,4 +413,154 @@ export const markMemberChatMessagesAsRead = async (
     body: JSON.stringify({ senderType }),
   });
 };
+
+// ============================================
+// DOCTOR PANEL PROGRESS REPORT API
+// ============================================
+
+// Progress summary for all assigned users
+export interface TodayFoodItem {
+  name: string;
+  calories: number;
+  portion?: string | null;
+}
+
+export interface UserProgressSummary {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  joinedDate: string;
+  assignedAt: string | null;
+  weight: number | null;
+  height: number | null;
+  bmi: number | null;
+  bmiCategory: string;
+  targetCalories: number;
+  todayCalories: number;
+  todayFoods: TodayFoodItem[];
+  weekAvgCalories: number;
+  complianceRate: number;
+  lastActive: string | null;
+  daysActiveLastWeek: number;
+}
+
+export interface ProgressSummaryResponse {
+  success: boolean;
+  data: {
+    summary: {
+      totalPatients: number;
+      activeToday: number;
+      avgCompliance: number;
+      criticalCases: number;
+    };
+    users: UserProgressSummary[];
+  };
+}
+
+// Meal activity for a specific meal
+export interface MealItem {
+  name: string;
+  calories: number;
+  portion?: string;
+}
+
+export interface MealActivityData {
+  id: number;
+  mealType: string;
+  selectedItems: MealItem[];
+  notes: string | null;
+  totalCalories: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// User meal activities response
+export interface UserMealActivitiesResponse {
+  success: boolean;
+  data: {
+    userId: number;
+    startDate: string;
+    endDate: string;
+    activitiesByDate: {
+      [date: string]: {
+        [mealType: string]: MealActivityData;
+      };
+    };
+    summary: {
+      totalDays: number;
+      daysWithMeals: number;
+      totalCalories: number;
+      avgCaloriesPerDay: number;
+      targetCalories: number;
+      avgComplianceRate: number;
+    };
+  };
+}
+
+// Diet analysis response
+export interface DietAnalysisDay {
+  date: string;
+  target: number;
+  actual: number;
+  compliance: number;
+  mealsTracked: number;
+  meals: {
+    [mealType: string]: number;
+  };
+}
+
+export interface MealBreakdown {
+  avgCalories: number;
+  target: number;
+}
+
+export interface DietAnalysisResponse {
+  success: boolean;
+  data: {
+    userId: number;
+    period: string;
+    currentWeight: number;
+    targetCalories: number;
+    analysis: {
+      avgDailyCalories: number;
+      targetCalories: number;
+      complianceRate: number;
+      daysData: DietAnalysisDay[];
+      breakdownByMeal: {
+        [mealType: string]: MealBreakdown;
+      };
+      totalDays: number;
+      daysWithData: number;
+    };
+  };
+}
+
+// Get progress summary for all assigned users
+export const getDoctorProgressSummary = async (): Promise<ProgressSummaryResponse> => {
+  return makeAuthenticatedRequest('/health/doctor/progress-summary');
+};
+
+// Get user's meal activities for a date range
+export const getDoctorUserMealActivities = async (
+  userId: number,
+  startDate?: string,
+  endDate?: string
+): Promise<UserMealActivitiesResponse> => {
+  const params = new URLSearchParams();
+  if (startDate) params.append('startDate', startDate);
+  if (endDate) params.append('endDate', endDate);
+  
+  const queryString = params.toString();
+  return makeAuthenticatedRequest(`/health/doctor/user/${userId}/meal-activities${queryString ? '?' + queryString : ''}`);
+};
+
+// Get user's diet analysis
+export const getDoctorUserDietAnalysis = async (
+  userId: number,
+  period: 'day' | 'week' | 'month' = 'week'
+): Promise<DietAnalysisResponse> => {
+  return makeAuthenticatedRequest(`/health/doctor/user/${userId}/diet-analysis?period=${period}`);
+};
+
 

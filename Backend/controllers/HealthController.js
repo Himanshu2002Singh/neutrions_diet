@@ -844,6 +844,26 @@ class HealthController {
         });
       }
 
+      // Validate selectedItems
+      if (!selectedItems || !Array.isArray(selectedItems)) {
+        return res.status(400).json({
+          success: false,
+          message: 'selectedItems must be an array of food objects'
+        });
+      }
+
+      // Calculate total calories from selectedItems
+      let totalCalories = 0;
+      selectedItems.forEach((item, index) => {
+        if (!item || typeof item !== 'object') {
+          console.warn(`Invalid item at index ${index}, skipping`);
+          return;
+        }
+        if (item.calories) {
+          totalCalories += parseInt(item.calories) || 0;
+        }
+      });
+
       // Import the DailyMealActivity model
       const { DailyMealActivity } = require('../models');
 
@@ -860,6 +880,7 @@ class HealthController {
         // Update existing activity
         existingActivity.selectedItems = selectedItems;
         existingActivity.notes = notes || null;
+        existingActivity.totalCalories = totalCalories;
         await existingActivity.save();
 
         res.status(200).json({
@@ -871,7 +892,8 @@ class HealthController {
             date: existingActivity.date,
             mealType: existingActivity.mealType,
             selectedItems: existingActivity.selectedItems,
-            notes: existingActivity.notes
+            notes: existingActivity.notes,
+            totalCalories: existingActivity.totalCalories
           }
         });
       } else {
@@ -881,7 +903,8 @@ class HealthController {
           date,
           mealType,
           selectedItems,
-          notes: notes || null
+          notes: notes || null,
+          totalCalories
         });
 
         res.status(201).json({
@@ -893,7 +916,8 @@ class HealthController {
             date: activity.date,
             mealType: activity.mealType,
             selectedItems: activity.selectedItems,
-            notes: activity.notes
+            notes: activity.notes,
+            totalCalories: activity.totalCalories
           }
         });
       }
@@ -2078,6 +2102,542 @@ class HealthController {
       res.status(500).json({
         success: false,
         message: 'Failed to get dashboard data',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Get user's meal activities for a date range (for doctor progress report)
+   * GET /api/health/doctor/user/:userId/meal-activities
+   */
+  async getDoctorUserMealActivities(req, res) {
+    try {
+      const { userId } = req.params;
+      const { startDate, endDate } = req.query;
+
+      // Verify doctor authorization
+      if (!req.admin || !req.admin.id) {
+        return res.status(401).json({
+          success: false,
+          message: 'Unauthorized - Doctor authentication required'
+        });
+      }
+
+      // Calculate date range (default: last 7 days)
+      let start = startDate;
+      let end = endDate;
+
+      if (!start) {
+        const endDateObj = end ? new Date(end) : new Date();
+        const startDateObj = new Date(endDateObj);
+        startDateObj.setDate(startDateObj.getDate() - 7);
+        start = startDateObj.toISOString().split('T')[0];
+      }
+
+      if (!end) {
+        end = new Date().toISOString().split('T')[0];
+      }
+
+      // Import models
+      const { DailyMealActivity, BMICalculation, HealthProfile, User } = require('../models');
+
+      // Get all meal activities for this user in the date range
+      const activities = await DailyMealActivity.findAll({
+        where: {
+          userId: parseInt(userId),
+          date: {
+            [require('sequelize').Op.between]: [start, end]
+          }
+        },
+        order: [['date', 'DESC'], ['mealType', 'ASC']]
+      });
+
+      // Group by date and meal type
+      const activitiesByDate = {};
+      let totalCalories = 0;
+      let daysWithMeals = new Set();
+
+      activities.forEach(activity => {
+        // Calculate meal calories from selectedItems
+        let mealCalories = 0;
+        if (activity.selectedItems && Array.isArray(activity.selectedItems)) {
+          activity.selectedItems.forEach(item => {
+            if (item.calories) {
+              mealCalories += parseInt(item.calories);
+            }
+          });
+        }
+
+        if (!activitiesByDate[activity.date]) {
+          activitiesByDate[activity.date] = {};
+        }
+        
+        const mealType = activity.mealType.charAt(0).toUpperCase() + activity.mealType.slice(1).toLowerCase();
+        
+        activitiesByDate[activity.date][mealType] = {
+          id: activity.id,
+          mealType: mealType,
+          selectedItems: activity.selectedItems || [],
+          notes: activity.notes,
+          totalCalories: mealCalories,
+          createdAt: activity.createdAt,
+          updatedAt: activity.updatedAt
+        };
+
+        totalCalories += mealCalories;
+        daysWithMeals.add(activity.date);
+      });
+
+      // Calculate summary stats
+      const startDateObj = new Date(start);
+      const endDateObj = new Date(end);
+      const totalDays = Math.ceil((endDateObj - startDateObj) / (1000 * 60 * 60 * 24)) + 1;
+
+      // Get target calories from BMI calculation
+      const bmiCalculation = await BMICalculation.findOne({
+        where: { userId: parseInt(userId) },
+        order: [['createdAt', 'DESC']]
+      });
+
+      const targetCalories = bmiCalculation?.dailyCalories || 2000;
+      const avgCaloriesPerDay = daysWithMeals.size > 0 ? Math.round(totalCalories / daysWithMeals.size) : 0;
+      const avgComplianceRate = targetCalories > 0 ? Math.round((avgCaloriesPerDay / targetCalories) * 100) : 0;
+
+      res.status(200).json({
+        success: true,
+        data: {
+          userId: parseInt(userId),
+          startDate: start,
+          endDate: end,
+          activitiesByDate,
+          summary: {
+            totalDays,
+            daysWithMeals: daysWithMeals.size,
+            totalCalories,
+            avgCaloriesPerDay,
+            targetCalories,
+            avgComplianceRate
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('Get doctor user meal activities error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to get meal activities',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Get diet compliance analysis for a user (for doctor progress report)
+   * GET /api/health/doctor/user/:userId/diet-analysis
+   */
+  async getDoctorUserDietAnalysis(req, res) {
+    try {
+      const { userId } = req.params;
+      const { period = 'week' } = req.query;
+
+      // Verify doctor authorization
+      if (!req.admin || !req.admin.id) {
+        return res.status(401).json({
+          success: false,
+          message: 'Unauthorized - Doctor authentication required'
+        });
+      }
+
+      // Calculate date range based on period
+      const today = new Date();
+      let startDate = new Date(today);
+      
+      switch (period) {
+        case 'day':
+          startDate.setDate(startDate.getDate());
+          break;
+        case 'week':
+          startDate.setDate(startDate.getDate() - 7);
+          break;
+        case 'month':
+          startDate.setDate(startDate.getDate() - 30);
+          break;
+        default:
+          startDate.setDate(startDate.getDate() - 7);
+      }
+
+      const start = startDate.toISOString().split('T')[0];
+      const end = today.toISOString().split('T')[0];
+
+      // Import models
+      const { DailyMealActivity, BMICalculation, HealthProfile } = require('../models');
+
+      // Get meal activities for the date range
+      const activities = await DailyMealActivity.findAll({
+        where: {
+          userId: parseInt(userId),
+          date: {
+            [require('sequelize').Op.between]: [start, end]
+          }
+        },
+        order: [['date', 'ASC'], ['mealType', 'ASC']]
+      });
+
+      // Get target calories
+      const bmiCalculation = await BMICalculation.findOne({
+        where: { userId: parseInt(userId) },
+        order: [['createdAt', 'DESC']]
+      });
+
+      const targetCalories = bmiCalculation?.dailyCalories || 2000;
+
+      // Get health profile for weight info
+      const healthProfile = await HealthProfile.findOne({
+        where: {
+          userId: parseInt(userId),
+          isCurrent: true
+        }
+      });
+
+      const currentWeight = healthProfile?.weight || 0;
+
+      // Calculate daily totals and compliance
+      const daysData = {};
+      const mealBreakdown = {};
+
+      activities.forEach(activity => {
+        // Calculate meal calories
+        let mealCalories = 0;
+        if (activity.selectedItems && Array.isArray(activity.selectedItems)) {
+          activity.selectedItems.forEach(item => {
+            if (item.calories) {
+              mealCalories += parseInt(item.calories);
+            }
+          });
+        }
+
+        const date = activity.date;
+        const mealType = activity.mealType.toLowerCase();
+
+        if (!daysData[date]) {
+          daysData[date] = {
+            date,
+            target: targetCalories,
+            actual: 0,
+            compliance: 0,
+            mealsTracked: 0,
+            meals: {}
+          };
+        }
+
+        daysData[date].actual += mealCalories;
+        daysData[date].mealsTracked++;
+        daysData[date].meals[activity.mealType] = mealCalories;
+
+        // Update meal breakdown
+        if (!mealBreakdown[mealType]) {
+          mealBreakdown[mealType] = {
+            totalCalories: 0,
+            daysCount: 0,
+            targetPerMeal: Math.round(targetCalories / 5) // Approximate target per meal
+          };
+        }
+        mealBreakdown[mealType].totalCalories += mealCalories;
+        mealBreakdown[mealType].daysCount++;
+      });
+
+      // Calculate compliance for each day and get final stats
+      let totalActual = 0;
+      let totalTarget = 0;
+      let daysWithData = 0;
+
+      Object.values(daysData).forEach((day) => {
+        day.compliance = day.target > 0 ? Math.round((day.actual / day.target) * 100) : 0;
+        if (day.actual > 0) {
+          totalActual += day.actual;
+          totalTarget += day.target;
+          daysWithData++;
+        }
+      });
+
+      const avgDailyCalories = daysWithData > 0 ? Math.round(totalActual / daysWithData) : 0;
+      const avgComplianceRate = totalTarget > 0 ? Math.round((totalActual / totalTarget) * 100) : 0;
+
+      // Calculate meal breakdown averages
+      const breakdownByMeal = {};
+      Object.keys(mealBreakdown).forEach(mealType => {
+        const data = mealBreakdown[mealType];
+        breakdownByMeal[mealType] = {
+          avgCalories: data.daysCount > 0 ? Math.round(data.totalCalories / data.daysCount) : 0,
+          target: data.targetPerMeal
+        };
+      });
+
+      res.status(200).json({
+        success: true,
+        data: {
+          userId: parseInt(userId),
+          period,
+          currentWeight: parseFloat(currentWeight),
+          targetCalories,
+          analysis: {
+            avgDailyCalories,
+            targetCalories,
+            complianceRate: avgComplianceRate,
+            daysData: Object.values(daysData),
+            breakdownByMeal,
+            totalDays: Object.keys(daysData).length,
+            daysWithData
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('Get doctor user diet analysis error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to get diet analysis',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Get progress summary for all assigned users (for doctor dashboard)
+   * GET /api/health/doctor/progress-summary
+   */
+  async getDoctorProgressSummary(req, res) {
+    try {
+      // Verify doctor authorization
+      if (!req.admin || !req.admin.id) {
+        return res.status(401).json({
+          success: false,
+          message: 'Unauthorized - Doctor authentication required'
+        });
+      }
+
+      const doctorId = req.admin.id;
+
+      // Import models
+      const { User, HealthProfile, BMICalculation, DailyMealActivity, DietPlan } = require('../models');
+
+      // Get all users assigned to this doctor
+      const assignedUsers = await User.findAll({
+        where: {
+          assignedDieticianId: doctorId
+        },
+        attributes: ['id', 'firstName', 'lastName', 'email', 'phone']
+      });
+
+      const today = new Date();
+      const todayStr = today.toISOString().split('T')[0];
+      const sevenDaysAgo = new Date(today);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
+
+      const usersProgress = await Promise.all(
+        assignedUsers.map(async (user) => {
+          const userId = user.id;
+          const userName = `${user.firstName} ${user.lastName}`;
+
+          // Get health profile
+          const healthProfile = await HealthProfile.findOne({
+            where: {
+              userId,
+              isCurrent: true
+            }
+          });
+
+          // Get latest BMI calculation
+          const bmiCalculation = await BMICalculation.findOne({
+            where: { userId },
+            order: [['createdAt', 'DESC']]
+          });
+
+          // Get user's diet plan to map food indices to actual food items
+          const dietPlan = await DietPlan.findOne({
+            where: {
+              userId,
+              isCurrent: true,
+              isActive: true
+            }
+          });
+
+          let dietSchedule = [];
+          if (dietPlan && dietPlan.dailySchedule) {
+            try {
+              dietSchedule = typeof dietPlan.dailySchedule === 'string' 
+                ? JSON.parse(dietPlan.dailySchedule) 
+                : dietPlan.dailySchedule;
+            } catch (e) {
+              console.error('Error parsing diet schedule:', e);
+              dietSchedule = [];
+            }
+          }
+
+          // Get today's meal activities
+          const todayMeals = await DailyMealActivity.findAll({
+            where: {
+              userId,
+              date: todayStr
+            }
+          });
+
+          // Calculate today's calories and collect food items
+          let todayCalories = 0;
+          const todayFoods = [];
+          
+          todayMeals.forEach(meal => {
+            if (meal.selectedItems && Array.isArray(meal.selectedItems)) {
+              meal.selectedItems.forEach(item => {
+                // Check if item is an index (string number) or actual food object
+                let foodName = 'Food Item';
+                let foodCalories = 0;
+                let foodPortion = null;
+
+                if (typeof item === 'object' && item !== null) {
+                  // It's a food object with name and calories
+                  foodName = item.name || 'Food Item';
+                  foodCalories = parseInt(item.calories) || 0;
+                  foodPortion = item.portion || item.selectedPortion || null;
+                } else if (typeof item === 'string' && dietSchedule.length > 0) {
+                  // It's an index, need to map to actual food from diet plan
+                  const foodIndex = parseInt(item);
+                  if (!isNaN(foodIndex)) {
+                    // Find the food item in the diet schedule
+                    const mealType = meal.mealType.toLowerCase();
+                    for (const scheduleItem of dietSchedule) {
+                      if (scheduleItem.mealType && scheduleItem.mealType.toLowerCase() === mealType) {
+                        if (scheduleItem.options && scheduleItem.options[foodIndex]) {
+                          const foodOption = scheduleItem.options[foodIndex];
+                          foodName = foodOption.name || 'Food Item';
+                          foodCalories = parseInt(foodOption.calories) || 0;
+                          foodPortion = foodOption.portion || null;
+                          break;
+                        }
+                      }
+                    }
+                  }
+                } else if (typeof item === 'string') {
+                  // It's a string but we don't have a diet plan
+                  foodName = `Food Item ${item}`;
+                  foodCalories = 0;
+                }
+
+                if (foodCalories > 0 || foodName) {
+                  todayCalories += foodCalories;
+                  
+                  // Collect food item details
+                  todayFoods.push({
+                    name: foodName,
+                    calories: foodCalories,
+                    portion: foodPortion
+                  });
+                }
+              });
+            }
+          });
+
+          // Get last 7 days meal activities for compliance
+          const weekMeals = await DailyMealActivity.findAll({
+            where: {
+              userId,
+              date: {
+                [require('sequelize').Op.between]: [sevenDaysAgoStr, todayStr]
+              }
+            }
+          });
+
+          // Calculate weekly compliance
+          let weekTotalCalories = 0;
+          const daysWithMeals = new Set();
+          weekMeals.forEach(meal => {
+            if (meal.selectedItems && Array.isArray(meal.selectedItems)) {
+              meal.selectedItems.forEach(item => {
+                let mealCalories = 0;
+                
+                // Check if item is an index or actual food object
+                if (typeof item === 'object' && item !== null && item.calories) {
+                  mealCalories = parseInt(item.calories) || 0;
+                } else if (typeof item === 'string' && dietSchedule.length > 0) {
+                  // It's an index, need to map to actual food from diet plan
+                  const foodIndex = parseInt(item);
+                  if (!isNaN(foodIndex)) {
+                    const mealType = meal.mealType.toLowerCase();
+                    for (const scheduleItem of dietSchedule) {
+                      if (scheduleItem.mealType && scheduleItem.mealType.toLowerCase() === mealType) {
+                        if (scheduleItem.options && scheduleItem.options[foodIndex]) {
+                          mealCalories = parseInt(scheduleItem.options[foodIndex].calories) || 0;
+                          break;
+                        }
+                      }
+                    }
+                  }
+                }
+                
+                weekTotalCalories += mealCalories;
+              });
+            }
+            daysWithMeals.add(meal.date);
+          });
+
+          const targetCalories = bmiCalculation?.dailyCalories || 2000;
+          const avgDailyCalories = daysWithMeals.size > 0 
+            ? Math.round(weekTotalCalories / daysWithMeals.size) 
+            : 0;
+          const complianceRate = targetCalories > 0 
+            ? Math.round((avgDailyCalories / targetCalories) * 100) 
+            : 0;
+
+          return {
+            id: userId,
+            name: userName,
+            email: user.email,
+            phone: user.phone || null,
+            joinedDate: user.createdAt,
+            assignedAt: user.assignedAt,
+            weight: healthProfile?.weight ? parseFloat(healthProfile.weight) : null,
+            height: healthProfile?.height ? parseFloat(healthProfile.height) : null,
+            bmi: bmiCalculation?.bmi ? parseFloat(bmiCalculation.bmi) : null,
+            bmiCategory: bmiCalculation?.category || 'N/A',
+            targetCalories,
+            todayCalories,
+            todayFoods,
+            weekAvgCalories: avgDailyCalories,
+            complianceRate,
+            lastActive: daysWithMeals.size > 0 ? todayStr : null,
+            daysActiveLastWeek: daysWithMeals.size
+          };
+        })
+      );
+
+      // Calculate summary stats
+      const totalPatients = usersProgress.length;
+      const activeToday = usersProgress.filter(u => u.todayCalories > 0).length;
+      const avgCompliance = usersProgress.length > 0
+        ? Math.round(usersProgress.reduce((sum, u) => sum + u.complianceRate, 0) / usersProgress.length)
+        : 0;
+      const criticalCases = usersProgress.filter(u => u.complianceRate < 50).length;
+
+      res.status(200).json({
+        success: true,
+        data: {
+          summary: {
+            totalPatients,
+            activeToday,
+            avgCompliance,
+            criticalCases
+          },
+          users: usersProgress
+        }
+      });
+
+    } catch (error) {
+      console.error('Get doctor progress summary error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to get progress summary',
         error: error.message
       });
     }

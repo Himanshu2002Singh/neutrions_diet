@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Filter, Grid3x3, List } from 'lucide-react';
-import { apiService } from '../../../services/api';
+import { Filter, Grid3x3, List, Calendar, Check, X } from 'lucide-react';
+import { apiService, FoodItemData } from '../../../services/api';
 
 // API response types matching backend
 interface FoodOption {
@@ -80,6 +80,9 @@ export function AllMenuSection() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState<number | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [addingToMeal, setAddingToMeal] = useState<number | null>(null);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const tabs = ['All', 'Breakfast', 'Lunch', 'Evening Snacks', 'Dinner', 'Late Night'];
 
@@ -100,6 +103,14 @@ export function AllMenuSection() {
       fetchDietPlan();
     }
   }, [userId]);
+
+  // Auto-hide notification after 3 seconds
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
 
   const fetchDietPlan = async () => {
     if (!userId) return;
@@ -176,15 +187,108 @@ export function AllMenuSection() {
     return colors[category] || 'bg-gray-200';
   };
 
+  const getMealType = (category: string): string => {
+    const mealTypes: Record<string, string> = {
+      'Wake Up': 'wake-up',
+      'Breakfast': 'breakfast',
+      'Mid-Morning': 'mid-morning',
+      'Lunch': 'lunch',
+      'Pre-Workout': 'pre-workout',
+      'Evening Snacks': 'evening-snacks',
+      'Dinner': 'dinner',
+      'Bed Time': 'bedtime',
+      'Late Night': 'late-night'
+    };
+    return mealTypes[category] || category.toLowerCase().replace(' ', '-');
+  };
+
+  const handleAddToMealPlan = async (item: MenuItem) => {
+    if (!userId || !selectedDate) {
+      setNotification({ type: 'error', message: 'User not authenticated' });
+      return;
+    }
+
+    setAddingToMeal(menuItems.indexOf(item));
+
+    try {
+      // Convert menu item to FoodItemData format
+      const foodItem: FoodItemData = {
+        name: item.name,
+        portion: item.portion,
+        imageUrl: item.image,
+        calories: item.calories,
+        macros: {
+          protein: item.protein,
+          carbs: item.carbs,
+          fats: item.fats
+        }
+      };
+
+      // Get meal type for the backend
+      const mealType = getMealType(item.category);
+
+      const response = await apiService.saveMealActivity(userId, {
+        date: selectedDate,
+        mealType,
+        selectedItems: [foodItem]
+      });
+
+      if (response.success) {
+        setNotification({ 
+          type: 'success', 
+          message: `${item.name} added to ${mealType} for ${selectedDate}!` 
+        });
+      } else {
+        setNotification({ 
+          type: 'error', 
+          message: response.message || 'Failed to add meal' 
+        });
+      }
+    } catch (error) {
+      console.error('Failed to add meal to plan:', error);
+      setNotification({ 
+        type: 'error', 
+        message: 'Failed to add meal. Please try again.' 
+      });
+    } finally {
+      setAddingToMeal(null);
+    }
+  };
+
   const filteredItems = activeTab === 'All' 
     ? menuItems 
     : menuItems.filter(item => item.category === activeTab);
 
   return (
-    <div className="bg-white rounded-2xl p-6">
+    <div className="bg-white rounded-2xl p-6 relative">
+      {/* Notification Toast */}
+      {notification && (
+        <div className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg ${
+          notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+        } text-white animate-fade-in`}>
+          {notification.type === 'success' ? (
+            <Check className="w-5 h-5" />
+          ) : (
+            <X className="w-5 h-5" />
+          )}
+          <span className="font-medium">{notification.message}</span>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-xl font-bold">All Menu</h3>
         <div className="flex items-center gap-4">
+          {/* Date Selector */}
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-gray-500" />
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              max={new Date().toISOString().split('T')[0]}
+              className="border border-gray-300 rounded-lg px-3 py-1 focus:outline-none focus:ring-2 focus:ring-[#C5E17A]"
+            />
+          </div>
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <span>Sort by:</span>
             <select className="border border-gray-300 rounded-lg px-3 py-1 focus:outline-none focus:ring-2 focus:ring-[#C5E17A]">
@@ -267,8 +371,21 @@ export function AllMenuSection() {
                     ))}
                   </div>
                 </div>
-                <button className="bg-[#C5E17A] text-black px-6 py-2 rounded-lg hover:opacity-90 transition-opacity font-semibold">
-                  Add to Meal Plan
+                <button
+                  onClick={() => handleAddToMealPlan(item)}
+                  disabled={addingToMeal === index}
+                  className={`bg-[#C5E17A] text-black px-6 py-2 rounded-lg hover:opacity-90 transition-opacity font-semibold flex items-center gap-2 ${
+                    addingToMeal === index ? 'opacity-75 cursor-wait' : ''
+                  }`}
+                >
+                  {addingToMeal === index ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    'Add to Meal Plan'
+                  )}
                 </button>
               </div>
             </div>

@@ -41,6 +41,13 @@ const DailyMealActivity = sequelize.define('DailyMealActivity', {
     type: DataTypes.TEXT,
     allowNull: true
   },
+  totalCalories: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    defaultValue: 0,
+    comment: 'Total calories for this meal',
+    field: 'total_calories'
+  },
   createdAt: {
     type: DataTypes.DATE,
     allowNull: false,
