@@ -438,11 +438,42 @@ router.get('/doctor/user/:userId/diet-analysis', authenticateAdmin, validateUser
 );
 
 /**
- * @route GET /api/health/doctor/user/:userId/progress-summary
+ * @route POST /api/health/doctor/upload-diet-pdf
+ * @desc Upload a diet PDF file, parse it, and save the diet plan to database
+ * @access Doctor/Dietician
+ */
+router.post('/doctor/upload-diet-pdf', authenticateAdmin, upload.single('file'), healthController.uploadAndParseDietPDF);
+
+/**
+ * @route POST /api/health/diet/parse-text
+ * @desc Parse diet plan text content directly (for manual input or testing)
+ * @access Doctor/Dietician
+ */
+router.post('/diet/parse-text', 
+  authenticateAdmin,
+  body('text')
+    .isString()
+    .isLength({ min: 50 })
+    .withMessage('Diet plan text must be at least 50 characters'),
+  body('userId')
+    .isInt({ min: 1 })
+    .withMessage('User ID must be a valid integer'),
+  healthController.parseDietPlanText
+);
+
+/**
+ * @route GET /api/health/doctor/progress-summary
  * @desc Get progress summary for all assigned users (for doctor dashboard)
  * @access Doctor/Dietician
  */
 router.get('/doctor/progress-summary', authenticateAdmin, healthController.getDoctorProgressSummary);
+
+/**
+ * @route GET /api/health/sidebar-diet-summary/:userId
+ * @desc Get diet summary for sidebar display
+ * @access User
+ */
+router.get('/sidebar-diet-summary/:userId', validateUserId, healthController.getSidebarDietSummary);
 
 module.exports = router;
 

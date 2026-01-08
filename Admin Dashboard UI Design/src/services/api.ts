@@ -199,6 +199,57 @@ export interface UserDietReportResponse {
   };
 }
 
+// ============================================
+// Task Management API Types
+// ============================================
+
+export type TaskType = 'daily' | 'weekly' | 'monthly' | 'new_user';
+export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'overdue' | 'cancelled';
+
+export interface Task {
+  id: number;
+  title: string;
+  description: string | null;
+  taskType: TaskType;
+  priority: TaskPriority;
+  status: TaskStatus;
+  dueDate: string | null;
+  targetCount: number;
+  currentCount: number;
+  metadata: Record<string, unknown>;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string | null;
+}
+
+export interface CreateTaskRequest {
+  title: string;
+  description?: string;
+  taskType: TaskType;
+  priority?: TaskPriority;
+  dueDate?: string;
+  targetCount?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface TaskStats {
+  total: number;
+  pending: number;
+  inProgress: number;
+  completed: number;
+  overdue: number;
+}
+
+export interface Doctor {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  category: string | null;
+}
+
 class ApiService {
   private async makeRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
     try {
@@ -214,12 +265,17 @@ class ApiService {
       
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        ...options?.headers,
       };
       
       // Add Authorization header if token exists
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      // Merge custom headers if provided
+      if (options?.headers) {
+        const customHeaders = options.headers as Record<string, string>;
+        Object.assign(headers, customHeaders);
       }
       
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -259,7 +315,7 @@ class ApiService {
     return this.makeRequest(`/api/users?${params}`);
   }
 
-// Get user statistics
+  // Get user statistics
   async getUserStats(): Promise<ApiResponse<UserStats>> {
     return this.makeRequest('/api/users/stats');
   }
@@ -365,7 +421,7 @@ class ApiService {
   }
 
   // Assign a dietician to a user
-  async assignDieticianToUser(userId: number, dieticianId: number): Promise<ApiResponse<any>> {
+  async assignDieticianToUser(userId: number, dieticianId: number): Promise<ApiResponse<unknown>> {
     return this.makeRequest('/api/health/admin/assign-dietician', {
       method: 'POST',
       body: JSON.stringify({ userId, dieticianId }),
@@ -373,7 +429,7 @@ class ApiService {
   }
 
   // Remove assignment (unassign dietician from user)
-  async removeUserAssignment(userId: number): Promise<ApiResponse<any>> {
+  async removeUserAssignment(userId: number): Promise<ApiResponse<unknown>> {
     return this.makeRequest('/api/health/admin/remove-assignment', {
       method: 'POST',
       body: JSON.stringify({ userId }),
@@ -381,7 +437,7 @@ class ApiService {
   }
 
   // Get user's assignment status
-  async getUserAssignmentStatus(userId: number): Promise<ApiResponse<any>> {
+  async getUserAssignmentStatus(userId: number): Promise<ApiResponse<unknown>> {
     return this.makeRequest(`/api/health/admin/user/${userId}/assignment`);
   }
 
@@ -413,7 +469,7 @@ class ApiService {
   }
 
   // Health check
-  async healthCheck(): Promise<any> {
+  async healthCheck(): Promise<unknown> {
     return this.makeRequest('/health');
   }
 
@@ -467,10 +523,120 @@ class ApiService {
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
   }
+
+  // ============================================
+  // Task Management API Methods
+  // ============================================
+
+  // Get all tasks with pagination and filters
+  async getAllTasks(
+    status?: TaskStatus,
+    taskType?: TaskType,
+    priority?: TaskPriority,
+    page: number = 1
+  ): Promise<{ success: boolean; data: Task[]; pagination: { total: number; page: number; limit: number; pages: number } }> {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: '20',
+      ...(status && { status }),
+      ...(taskType && { taskType }),
+      ...(priority && { priority })
+    });
+    return this.makeRequest(`/api/tasks?${params}`);
+  }
+
+  // Get a single task by ID
+  async getTask(taskId: number): Promise<{ success: boolean; data: Task }> {
+    return this.makeRequest(`/api/tasks/${taskId}`);
+  }
+
+  // Create a new task
+  async createTask(data: CreateTaskRequest): Promise<{ success: boolean; message?: string; data: Task }> {
+    return this.makeRequest('/api/tasks', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Update a task
+  async updateTask(taskId: number, data: Partial<CreateTaskRequest>): Promise<{ success: boolean; message?: string; data: Task }> {
+    return this.makeRequest(`/api/tasks/${taskId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Delete a task (soft delete)
+  async deleteTask(taskId: number): Promise<{ success: boolean; message?: string }> {
+    return this.makeRequest(`/api/tasks/${taskId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Assign a task to a doctor
+  async assignTaskToDoctor(taskId: number, doctorId: number, notes?: string): Promise<{ success: boolean; message?: string; data: unknown }> {
+    return this.makeRequest(`/api/tasks/${taskId}/assign`, {
+      method: 'POST',
+      body: JSON.stringify({ doctorId, notes }),
+    });
+  }
+
+  // Get all doctors (for assignment)
+  async getAllDoctors(): Promise<{ success: boolean; data: Doctor[] }> {
+    return this.makeRequest('/api/tasks/doctors');
+  }
+
+  // Get task statistics
+  async getTaskStats(): Promise<{ success: boolean; data: TaskStats }> {
+    return this.makeRequest('/api/tasks/stats');
+  }
 }
 
 // Create a singleton instance
 export const apiService = new ApiService();
 
+// ============================================
+// Task Management API Functions
+// These are standalone exports for convenience
+// ============================================
+
+export async function getAllTasks(
+  status?: TaskStatus,
+  taskType?: TaskType,
+  priority?: TaskPriority,
+  page: number = 1
+) {
+  return apiService.getAllTasks(status, taskType, priority, page);
+}
+
+export async function getTask(taskId: number) {
+  return apiService.getTask(taskId);
+}
+
+export async function createTask(data: CreateTaskRequest) {
+  return apiService.createTask(data);
+}
+
+export async function updateTask(taskId: number, data: Partial<CreateTaskRequest>) {
+  return apiService.updateTask(taskId, data);
+}
+
+export async function deleteTask(taskId: number) {
+  return apiService.deleteTask(taskId);
+}
+
+export async function assignTaskToDoctor(taskId: number, doctorId: number, notes?: string) {
+  return apiService.assignTaskToDoctor(taskId, doctorId, notes);
+}
+
+export async function getAllDoctors() {
+  return apiService.getAllDoctors();
+}
+
+export async function getTaskStats() {
+  return apiService.getTaskStats();
+}
+
 // Export the class for testing
 export default ApiService;
+

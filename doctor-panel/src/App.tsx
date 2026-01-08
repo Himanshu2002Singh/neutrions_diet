@@ -6,6 +6,7 @@ import Dashboard from './components/Dashboard';
 import AssignedUsers from './components/AssignedUsers';
 import ProgressReport from './components/ProgressReport';
 import DoctorChat from './components/DoctorChat';
+import DoctorTasks from './components/DoctorTasks';
 import Login from './components/Login';
 import { isAuthenticated, getCurrentUser, logout } from './services/api';
 import type { AdminUser } from './types';
@@ -74,6 +75,7 @@ function AppContent() {
     if (path === '/' || path === '/dashboard') return 'dashboard';
     if (path === '/assigned') return 'assigned';
     if (path === '/progress') return 'progress';
+    if (path === '/tasks') return 'tasks';
     if (path === '/messages') return 'messages';
     return 'dashboard';
   };
@@ -99,6 +101,7 @@ function AppContent() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/assigned" element={<AssignedUsers />} />
             <Route path="/progress" element={<ProgressReport />} />
+            <Route path="/tasks" element={<DoctorTasks sidebarOpen={sidebarOpen} />} />
             <Route path="/messages" element={<DoctorChat />} />
           </Routes>
         </main>

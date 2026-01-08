@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Star, ChefHat, Clock, BarChart3, List, MoreVertical, Calendar, Check } from 'lucide-react';
+import { Star, ChefHat, Clock, BarChart3, List, MoreVertical, Calendar, Check, AlertCircle, User, Activity, UserPlus } from 'lucide-react';
 import { apiService } from '../../../services/api';
 
 // API response types matching backend
@@ -40,6 +40,7 @@ interface LateNightOption {
 interface PersonalizedDietPlan {
   userId: number;
   userName: string;
+  source: string; // 'database' - always comes from DB when uploaded by dietitian
   profile: {
     age: number;
     weight: number;
@@ -61,6 +62,16 @@ interface PersonalizedDietPlan {
   goals?: string[];
 }
 
+interface UserStatus {
+  hasHealthProfile: boolean;
+  hasAssignedDietician: boolean;
+  hasDietPlan: boolean;
+  registeredAt: string | null;
+  assignedAt: string | null;
+  hoursSinceRegistration: number;
+  hoursSinceAssignment: number;
+}
+
 export function PersonalizedDietView() {
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split('T')[0]
@@ -74,6 +85,15 @@ export function PersonalizedDietView() {
   const [activeMeal, setActiveMeal] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'diet' | 'important'>('diet');
+  const [userStatus, setUserStatus] = useState<UserStatus>({
+    hasHealthProfile: false,
+    hasAssignedDietician: false,
+    hasDietPlan: false,
+    registeredAt: null,
+    assignedAt: null,
+    hoursSinceRegistration: 0,
+    hoursSinceAssignment: 0
+  });
 
   // Get user ID from localStorage
   useEffect(() => {
@@ -94,6 +114,82 @@ export function PersonalizedDietView() {
       fetchDietPlan();
     }
   }, [userId]);
+
+  // Check user status (health profile, assignment, registration date)
+  useEffect(() => {
+    if (userId) {
+      checkUserStatus();
+    }
+  }, [userId]);
+
+  const checkUserStatus = async () => {
+    if (!userId) return;
+
+    try {
+      const savedUser = localStorage.getItem('neutrion-user');
+      let registeredAt: string | null = null;
+      let assignedAt: string | null = null;
+
+      if (savedUser) {
+        const user = JSON.parse(savedUser);
+        registeredAt = user.createdAt || user.created_at || null;
+      }
+
+      // Check health profile from localStorage
+      const healthProfile = localStorage.getItem('neutrion-health-profile');
+      const hasHealthProfile = !!healthProfile;
+
+      // Check if user has assigned dietician by fetching dashboard data
+      try {
+        const dashboardResponse = await apiService.getDashboardData(userId);
+        if (dashboardResponse.success && dashboardResponse.data) {
+          const dashboard = dashboardResponse.data;
+          const assignedDoctor = dashboard.assignedDoctor;
+          const hasAssignedDietician = !!assignedDoctor;
+          
+          if (assignedDoctor?.assignedAt) {
+            assignedAt = assignedDoctor.assignedAt;
+          }
+
+          // Calculate hours since registration
+          let hoursSinceRegistration = 0;
+          let hoursSinceAssignment = 0;
+
+          if (registeredAt) {
+            const regDate = new Date(registeredAt);
+            const now = new Date();
+            hoursSinceRegistration = Math.floor((now.getTime() - regDate.getTime()) / (1000 * 60 * 60));
+          }
+
+          if (assignedAt) {
+            const assignDate = new Date(assignedAt);
+            const now = new Date();
+            hoursSinceAssignment = Math.floor((now.getTime() - assignDate.getTime()) / (1000 * 60 * 60));
+          }
+
+          setUserStatus({
+            hasHealthProfile,
+            hasAssignedDietician,
+            hasDietPlan: !!dashboard.dietPlan,
+            registeredAt,
+            assignedAt,
+            hoursSinceRegistration,
+            hoursSinceAssignment
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
+        // Fallback: just set health profile status
+        setUserStatus(prev => ({
+          ...prev,
+          hasHealthProfile,
+          registeredAt
+        }));
+      }
+    } catch (error) {
+      console.error('Error checking user status:', error);
+    }
+  };
 
   const fetchDietPlan = async () => {
     if (!userId) return;
@@ -270,6 +366,52 @@ export function PersonalizedDietView() {
     return match ? parseInt(match[1]) : 2000;
   };
 
+  // Determine what message to show based on user status
+  const getStatusMessage = () => {
+    // Step 1: Check if user has health profile
+    if (!userStatus.hasHealthProfile) {
+      return {
+        type: 'info',
+        icon: <Activity className="w-8 h-8 text-blue-500" />,
+        title: 'Please Fill Your Health Profile',
+        message: 'To get a personalized diet plan, you need to fill your health profile first. This helps our team understand your needs and create a customized plan for you.',
+        actionText: 'Fill Health Profile',
+        actionLink: '/health-profile'
+      };
+    }
+
+    // Step 2: Check if dietician is assigned
+    if (!userStatus.hasAssignedDietician) {
+      const hoursLeft = 25 - userStatus.hoursSinceRegistration;
+      const hoursToWait = hoursLeft > 0 ? hoursLeft : 0;
+      return {
+        type: 'waiting',
+        icon: <Clock className="w-8 h-8 text-orange-500" />,
+        title: 'Please Wait for Dietitian Assignment',
+        message: `Thank you for filling your health profile. Our team needs time to review your information and assign a qualified dietitian. Please wait ${hoursToWait} more hours for assignment.`,
+        actionText: null,
+        actionLink: null
+      };
+    }
+
+    // Step 3: Dietician is assigned - check if diet plan is uploaded
+    if (userStatus.hasAssignedDietician && !userStatus.hasDietPlan) {
+      return {
+        type: 'preparing',
+        icon: <ChefHat className="w-8 h-8 text-purple-500" />,
+        title: 'Your Diet Plan is Being Prepared',
+        message: `Your assigned dietitian is currently creating your personalized diet plan based on your health profile and goals. Your diet chart will be uploaded soon. Please check back later.`,
+        actionText: null,
+        actionLink: null
+      };
+    }
+
+    // Step 4: Diet plan is available - show it
+    return null;
+  };
+
+  const statusMessage = getStatusMessage();
+
   return (
     <div className="max-w-7xl mx-auto">
       {/* Header */}
@@ -277,6 +419,27 @@ export function PersonalizedDietView() {
         <h1 className="text-3xl font-bold text-gray-900 mb-2">My Personalized Diet Plan</h1>
         <p className="text-gray-600">Your customized diet plan for your weight loss journey</p>
       </div>
+
+      {/* User Status Messages */}
+      {statusMessage && !dietPlan && (
+        <div className="bg-white rounded-xl shadow-md p-8 mb-6">
+          <div className="flex flex-col items-center text-center">
+            <div className="mb-4 p-4 bg-gray-50 rounded-full">
+              {statusMessage.icon}
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">{statusMessage.title}</h2>
+            <p className="text-gray-600 max-w-lg mb-4">{statusMessage.message}</p>
+            {statusMessage.actionText && (
+              <a
+                href={statusMessage.actionLink}
+                className="bg-[#C5E17A] hover:bg-[#b5d16a] text-black px-6 py-2 rounded-lg font-medium transition-colors"
+              >
+                {statusMessage.actionText}
+              </a>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Nutrition Targets */}
       {dietPlan && (
@@ -307,8 +470,10 @@ export function PersonalizedDietView() {
         </div>
       )}
 
-      {/* Date Selector */}
-      <div className="bg-white rounded-xl shadow-md p-4 mb-6">
+      {/* Date Selector & Meal Content - Only show when dietPlan exists */}
+      {dietPlan && (
+        <>
+          <div className="bg-white rounded-xl shadow-md p-4 mb-6">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-800">Select Date</h2>
           <div className="flex gap-2 overflow-x-auto pb-2">
@@ -554,6 +719,8 @@ export function PersonalizedDietView() {
             <p className="text-gray-600 mt-3">Loading your personalized diet plan...</p>
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );

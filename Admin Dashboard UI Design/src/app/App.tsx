@@ -7,6 +7,7 @@ import CheckProgress from './components/progress/CheckProgress';
 import AllUsers from './components/users/AllUsers';
 import ReferralManagement from './components/referrals/ReferralManagement';
 import UserDietReport from './components/user-diet-report';
+import TaskManagement from './components/tasks/TaskManagement';
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
             <Route path="/assign-dietician" element={<AssignDietician />} />
             <Route path="/check-progress" element={<CheckProgress />} />
             <Route path="/user-diet-report" element={<UserDietReport />} />
+            <Route path="/task-management" element={<TaskManagement />} />
             <Route path="/all-users" element={<AllUsers />} />
             <Route path="/referrals" element={<ReferralManagement />} />
           </Routes>

@@ -775,6 +775,83 @@ class ApiService {
   }> {
     return this.makeRequest(`/api/chat/user/${userId}/unread-count`);
   }
+
+  // ============ Sidebar Diet Summary API ============
+
+  // Get diet summary for sidebar display
+  async getSidebarDietSummary(userId: number): Promise<{
+    success: boolean;
+    data: {
+      date: string;
+      userId: number;
+      dietPlan: {
+        hasPlan: boolean;
+        planName: string | null;
+        goals: string[];
+      };
+      nutritionTargets: {
+        calories: string;
+        protein: string;
+        carbs: string;
+        fats: string;
+        fiber: string;
+      } | null;
+      todaySchedule: Array<{
+        time: string;
+        mealType: string;
+        title: string;
+        options: Array<{
+          name: string;
+          portion: string;
+          imageUrl?: string;
+          calories: number;
+          macros?: {
+            protein: number;
+            carbs: number;
+            fats: number;
+          };
+        }>;
+        tips?: string;
+      }>;
+      loggedMeals: Array<{
+        mealType: string;
+        items: FoodItemData[];
+        notes: string | null;
+        calories: number;
+        protein: number;
+        carbs: number;
+        fats: number;
+      }>;
+      calories: {
+        target: number;
+        consumed: number;
+        remaining: number;
+        compliance: number;
+      };
+      macros: {
+        protein: {
+          target: number;
+          consumed: number;
+        };
+        carbs: {
+          target: number;
+          consumed: number;
+        };
+        fats: {
+          target: number;
+          consumed: number;
+        };
+      };
+      mealsProgress: {
+        completed: number;
+        total: number;
+        percentage: number;
+      };
+      weight: number | null;
+    };
+  }> {
+    return this.makeRequest(`/api/health/sidebar-diet-summary/${userId}`);
+  }
 }
 
 // Create a singleton instance

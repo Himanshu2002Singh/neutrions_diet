@@ -36,7 +36,7 @@ const generateToken = (user) => {
 // Verify Google ID token and login/register user
 const googleLogin = async (req, res) => {
   try {
-    const { idToken } = req.body;
+    const { idToken, referralCode } = req.body;
 
     if (!idToken) {
       return res.status(400).json({
@@ -75,7 +75,13 @@ const googleLogin = async (req, res) => {
         const lastName = nameParts.slice(1).join(' ') || 'User';
 
         // Generate unique referral code for the new user
-        const referralCode = await generateUniqueReferralCode();
+        const newReferralCode = await generateUniqueReferralCode();
+
+        // Find who referred this user (if referral code provided)
+        let referrerUser = null;
+        if (referralCode) {
+          referrerUser = await User.findOne({ where: { referralCode: referralCode } });
+        }
 
         user = await User.create({
           email,
@@ -85,15 +91,71 @@ const googleLogin = async (req, res) => {
           googleAvatar: avatar,
           isGoogleUser: true,
           lastLogin: new Date(),
-          referralCode: referralCode
+          referralCode: newReferralCode,
+          referredByUserId: referrerUser ? referrerUser.id : null
         });
 
         // Create a referral record for tracking
         await Referral.create({
-          referralCode: referralCode,
+          referralCode: newReferralCode,
           referrerUserId: user.id,
           status: 'pending'
         });
+
+        // If referred by someone, update their referral count
+        if (referrerUser) {
+          // Update the referral record
+          await Referral.update(
+            {
+              referredUserId: user.id,
+              status: 'completed',
+              referredAt: new Date()
+            },
+            {
+              where: {
+                referralCode: referralCode,
+                referrerUserId: referrerUser.id
+              }
+            }
+          );
+
+          // Update doctor's referral task count
+          try {
+            const { Task, DoctorTask } = require('../models');
+            const { Op } = require('sequelize');
+            
+            const doctorTasks = await DoctorTask.findAll({
+              where: {
+                doctorId: referrerUser.id,
+                isActive: true,
+                status: { [Op.in]: ['assigned', 'accepted', 'in_progress'] }
+              },
+              include: [{
+                model: Task,
+                as: 'task',
+                where: {
+                  taskType: 'new_user',
+                  isActive: true
+                }
+              }]
+            });
+
+            for (const doctorTask of doctorTasks) {
+              doctorTask.referralCount += 1;
+              const progress = Math.min(100, Math.round((doctorTask.referralCount / doctorTask.task.targetCount) * 100));
+              doctorTask.progress = progress;
+
+              if (progress >= 100 && doctorTask.status !== 'completed') {
+                doctorTask.status = 'completed';
+                doctorTask.completedAt = new Date();
+              }
+
+              await doctorTask.save();
+            }
+          } catch (taskError) {
+            console.error('Error updating referral count:', taskError);
+          }
+        }
       }
     } else {
       // Update last login and avatar
@@ -117,7 +179,9 @@ const googleLogin = async (req, res) => {
           email: user.email,
           avatar: user.googleAvatar || avatar,
           isGoogleUser: user.isGoogleUser,
-          isActive: user.isActive
+          isActive: user.isActive,
+          referralCode: user.referralCode,
+          referredByUserId: user.referredByUserId
         },
         token
       }

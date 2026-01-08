@@ -3,7 +3,7 @@
 // ============================================
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Users, TrendingUp, LayoutDashboard, X, MessageCircle } from 'lucide-react';
+import { Users, TrendingUp, LayoutDashboard, X, MessageCircle, CheckSquare } from 'lucide-react';
 
 interface SidebarProps {
   sidebarOpen: boolean;
@@ -19,6 +19,7 @@ function Sidebar({ sidebarOpen, setSidebarOpen, activeTab }: SidebarProps) {
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/' },
     { id: 'assigned', label: 'Assigned Users', icon: Users, path: '/assigned' },
     { id: 'progress', label: 'Progress Report', icon: TrendingUp, path: '/progress' },
+    { id: 'tasks', label: 'My Tasks', icon: CheckSquare, path: '/tasks' },
     { id: 'messages', label: 'Messages', icon: MessageCircle, path: '/messages' }
   ];
 

@@ -7,6 +7,7 @@ const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
 const referralRoutes = require('./routes/referral');
 const chatRoutes = require('./routes/chat');
+const taskRoutes = require('./routes/tasks');
 const { testConnection } = require('./config/database');
 
 require('dotenv').config();
@@ -35,6 +36,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/referral', referralRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/tasks', taskRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -106,7 +108,7 @@ const startServer = async () => {
     await testConnection();
     
     // Sync database models (creates tables if they don't exist)
-    const { sequelize, User, HealthProfile, BMICalculation, DietRecommendation, Admin, Referral } = require('./models');
+    const { sequelize, User, HealthProfile, BMICalculation, DietRecommendation, Admin, Referral, Task, DoctorTask } = require('./models');
     
     console.log('🔄 Syncing database models...');
     await sequelize.sync({ alter: false }); // Sync without altering to avoid key limit errors

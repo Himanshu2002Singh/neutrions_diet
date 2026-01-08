@@ -12,6 +12,8 @@ const Referral = require('./Referral');
 const DailyMealActivity = require('./DailyMealActivity');
 const ChatConversation = require('./ChatConversation');
 const ChatMessage = require('./ChatMessage');
+const Task = require('./Task');
+const DoctorTask = require('./DoctorTask');
 
 // Define associations
 User.hasMany(HealthProfile, { foreignKey: 'userId', as: 'healthProfiles' });
@@ -94,6 +96,22 @@ ChatMessage.belongsTo(ChatConversation, { foreignKey: 'conversationId', as: 'con
 User.hasMany(ChatMessage, { foreignKey: 'senderId', as: 'sentMessages' });
 ChatMessage.belongsTo(User, { foreignKey: 'senderId', as: 'sender' });
 
+// ============================================
+// Task Associations
+// ============================================
+
+// Task has many DoctorTask assignments
+Task.hasMany(DoctorTask, { foreignKey: 'taskId', as: 'doctorAssignments' });
+DoctorTask.belongsTo(Task, { foreignKey: 'taskId', as: 'task' });
+
+// DoctorTask belongs to Admin (doctor/member)
+DoctorTask.belongsTo(Admin, { foreignKey: 'doctorId', as: 'doctor' });
+Admin.hasMany(DoctorTask, { foreignKey: 'doctorId', as: 'taskAssignments' });
+
+// Admin can be assigned many tasks
+Admin.hasMany(DoctorTask, { foreignKey: 'doctorId', as: 'doctorTasks' });
+DoctorTask.belongsTo(Admin, { foreignKey: 'doctorId', as: 'assignedDoctor' });
+
 module.exports = {
   sequelize,
   User,
@@ -106,5 +124,7 @@ module.exports = {
   Referral,
   DailyMealActivity,
   ChatConversation,
-  ChatMessage
+  ChatMessage,
+  Task,
+  DoctorTask
 };

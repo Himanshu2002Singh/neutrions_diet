@@ -563,4 +563,275 @@ export const getDoctorUserDietAnalysis = async (
   return makeAuthenticatedRequest(`/health/doctor/user/${userId}/diet-analysis?period=${period}`);
 };
 
+// ============================================
+// DOCTOR PANEL TASK MANAGEMENT API
+// ============================================
+
+// Task types
+export type TaskType = 'daily' | 'weekly' | 'monthly' | 'new_user';
+export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'overdue' | 'cancelled';
+export type DoctorTaskStatus = 'assigned' | 'accepted' | 'in_progress' | 'completed' | 'rejected';
+
+export interface Task {
+  id: number;
+  title: string;
+  description: string | null;
+  taskType: TaskType;
+  priority: TaskPriority;
+  status: TaskStatus;
+  dueDate: string | null;
+  deadline: string | null;
+  nextOccurrence: string | null;
+  completedAt: string | null;
+  targetCount: number;
+  currentCount: number;
+  referralTimerMinutes: number;
+  lastReferralAt: string | null;
+  isActive: boolean;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  doctorAssignments?: DoctorTask[];
+  countdown?: CountdownInfo;
+}
+
+export interface CountdownInfo {
+  display: string;
+  isExpired: boolean;
+  remainingMs: number;
+}
+
+export interface DoctorTask {
+  id: number;
+  taskId: number;
+  doctorId: number;
+  status: DoctorTaskStatus;
+  notes: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  referralCount: number;
+  progress: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  task?: Task;
+  countdown?: CountdownInfo;
+}
+
+export interface TaskStats {
+  total: number;
+  pending: number;
+  inProgress: number;
+  completed: number;
+  overdue: number;
+}
+
+export interface PaginatedDoctorTasks {
+  success: boolean;
+  data: DoctorTask[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    pages: number;
+  };
+}
+
+// Get tasks assigned to a specific doctor/member
+export const getDoctorTasks = async (
+  doctorId: number,
+  status?: DoctorTaskStatus,
+  page: number = 1,
+  limit: number = 20
+): Promise<PaginatedDoctorTasks> => {
+  const params = new URLSearchParams();
+  if (status) params.append('status', status);
+  params.append('page', page.toString());
+  params.append('limit', limit.toString());
+  
+  return makeAuthenticatedRequest(`/tasks/doctor/${doctorId}?${params.toString()}`);
+};
+
+// Update status of a doctor task
+export const updateDoctorTaskStatus = async (
+  doctorTaskId: number,
+  status: DoctorTaskStatus,
+  notes?: string,
+  progress?: number
+): Promise<{ success: boolean; message: string; data: DoctorTask }> => {
+  return makeAuthenticatedRequest(`/tasks/doctor/${doctorTaskId}/status`, {
+    method: 'PUT',
+    body: JSON.stringify({ status, notes, progress }),
+  });
+};
+
+// Get all doctors/members (for admin task assignment)
+export const getAllDoctors = async (): Promise<{ success: boolean; data: Array<{
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  category: string | null;
+}> }> => {
+  return makeAuthenticatedRequest('/tasks/doctors');
+};
+
+// Get task statistics (for admin dashboard)
+export const getTaskStats = async (): Promise<{ success: boolean; data: TaskStats }> => {
+  return makeAuthenticatedRequest('/tasks/stats');
+};
+
+// ============================================
+// ADMIN TASK MANAGEMENT API (for Admin Dashboard)
+// ============================================
+
+export interface CreateTaskRequest {
+  title: string;
+  description?: string;
+  taskType: TaskType;
+  priority?: TaskPriority;
+  dueDate?: string;
+  targetCount?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface PaginatedTasks {
+  success: boolean;
+  data: Task[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    pages: number;
+  };
+}
+
+// Get all tasks (admin only)
+export const getAllTasks = async (
+  status?: TaskStatus,
+  taskType?: TaskType,
+  priority?: TaskPriority,
+  page: number = 1,
+  limit: number = 20
+): Promise<PaginatedTasks> => {
+  const params = new URLSearchParams();
+  if (status) params.append('status', status);
+  if (taskType) params.append('taskType', taskType);
+  if (priority) params.append('priority', priority);
+  params.append('page', page.toString());
+  params.append('limit', limit.toString());
+  
+  return makeAuthenticatedRequest(`/tasks?${params.toString()}`);
+};
+
+// Create a new task (admin only)
+export const createTask = async (taskData: CreateTaskRequest): Promise<{ success: boolean; message: string; data: Task }> => {
+  return makeAuthenticatedRequest('/tasks', {
+    method: 'POST',
+    body: JSON.stringify(taskData),
+  });
+};
+
+// Get a single task (admin only)
+export const getTask = async (taskId: number): Promise<{ success: boolean; data: Task }> => {
+  return makeAuthenticatedRequest(`/tasks/${taskId}`);
+};
+
+// Update a task (admin only)
+export const updateTask = async (
+  taskId: number,
+  taskData: Partial<CreateTaskRequest>
+): Promise<{ success: boolean; message: string; data: Task }> => {
+  return makeAuthenticatedRequest(`/tasks/${taskId}`, {
+    method: 'PUT',
+    body: JSON.stringify(taskData),
+  });
+};
+
+// Delete a task (admin only - soft delete)
+export const deleteTask = async (taskId: number): Promise<{ success: boolean; message: string }> => {
+  return makeAuthenticatedRequest(`/tasks/${taskId}`, {
+    method: 'DELETE',
+  });
+};
+
+// Assign a task to a doctor (admin only)
+export const assignTaskToDoctor = async (
+  taskId: number,
+  doctorId: number,
+  notes?: string
+): Promise<{ success: boolean; message: string; data: DoctorTask }> => {
+  return makeAuthenticatedRequest(`/tasks/${taskId}/assign`, {
+    method: 'POST',
+    body: JSON.stringify({ doctorId, notes }),
+  });
+};
+
+// ============================================
+// DOCTOR PANEL REFERRALS API
+// ============================================
+
+export interface ReferralInfo {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  joinedAt: string;
+  referralCode: string;
+}
+
+export interface DoctorReferralsResponse {
+  success: boolean;
+  data: {
+    totalReferrals: number;
+    referrals: ReferralInfo[];
+  };
+}
+
+// Get referrals for a doctor
+export const getDoctorReferrals = async (doctorId: number): Promise<DoctorReferralsResponse> => {
+  return makeAuthenticatedRequest(`/tasks/doctor/${doctorId}/referrals`);
+};
+
+// Get doctor's referral code
+export interface DoctorReferralCodeResponse {
+  success: boolean;
+  data: {
+    referralCode: string;
+    doctorName: string;
+  };
+}
+
+export const getDoctorReferralCode = async (doctorId: number): Promise<DoctorReferralCodeResponse> => {
+  return makeAuthenticatedRequest(`/tasks/doctor/${doctorId}/referral-code`);
+};
+
+// Create a referral invitation
+export interface CreateReferralInviteRequest {
+  name: string;
+  email: string;
+  taskId?: number;
+}
+
+export interface CreateReferralInviteResponse {
+  success: boolean;
+  message: string;
+  data: {
+    referralCode: string;
+    referralId: number;
+    doctorName: string;
+  };
+}
+
+export const createReferralInvite = async (
+  doctorId: number,
+  data: CreateReferralInviteRequest
+): Promise<CreateReferralInviteResponse> => {
+  return makeAuthenticatedRequest(`/tasks/doctor/${doctorId}/referral-invite`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
 

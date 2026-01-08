@@ -49,6 +49,13 @@ const Admin = sequelize.define('Admin', {
     type: DataTypes.BOOLEAN,
     defaultValue: true,
     field: 'is_active'
+  },
+  // Unique referral code for this doctor
+  referralCode: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    unique: true,
+    field: 'referral_code'
   }
 }, {
   tableName: 'admin',

@@ -1736,12 +1736,16 @@ class HealthController {
 /**
    * Get personalized diet plan for a user based on their health profile
    * GET /api/diet/personalized/:userId
+   * 
+   * NOTE: Diet plan ONLY comes from database when uploaded by assigned dietitian.
+   * No automatic fallback generation is done. If no plan exists in DB,
+   * returns null so frontend can show "Your Diet Plan is Being Prepared" message.
    */
   async getPersonalizedDietPlan(req, res) {
     try {
       const { userId } = req.params;
 
-      // Try to get diet plan from database first
+      // Get diet plan ONLY from database (uploaded by assigned dietitian)
       const { DietPlan } = require('../models');
       
       const storedDietPlan = await DietPlan.findOne({
@@ -1753,7 +1757,7 @@ class HealthController {
       });
 
       if (storedDietPlan) {
-        // Return the stored diet plan from database
+        // Return the stored diet plan from database (uploaded by dietitian)
         return res.status(200).json({
           success: true,
           data: {
@@ -1771,78 +1775,12 @@ class HealthController {
         });
       }
 
-      // If no stored diet plan, generate one dynamically
-      // Calculate daily calories based on profile
-      let dailyCalories = 2000; // Default
-      let bmiCategory = 'Normal';
-      let userName = 'User';
-      let userAge = 0;
-      let userWeight = 0;
-      let userHeight = 0;
-
-      try {
-        // Import models
-        const { HealthProfile, BMICalculation } = require('../models');
-
-        // Get user's current health profile
-        const healthProfile = await HealthProfile.findOne({
-          where: {
-            userId: parseInt(userId),
-            isCurrent: true
-          }
-        });
-
-        if (healthProfile) {
-          userAge = healthProfile.age || 0;
-          userWeight = healthProfile.weight || 0;
-          userHeight = healthProfile.height || 0;
-          userName = 'User';
-        }
-
-        // Get latest BMI calculation
-        const bmiCalculation = await BMICalculation.findOne({
-          where: { userId: parseInt(userId) },
-          order: [['createdAt', 'DESC']]
-        });
-
-        if (bmiCalculation) {
-          dailyCalories = bmiCalculation.dailyCalories || 2000;
-          bmiCategory = bmiCalculation.category || 'Normal';
-        } else if (healthProfile) {
-          // Calculate based on profile
-          const { calculateAllHealthMetrics } = require('../services/healthCalculations');
-          const metrics = calculateAllHealthMetrics({
-            weight: healthProfile.weight,
-            height: healthProfile.height,
-            age: healthProfile.age,
-            gender: healthProfile.gender,
-            activityLevel: healthProfile.activityLevel
-          });
-          dailyCalories = metrics.dailyCalories;
-          bmiCategory = metrics.category;
-        }
-      } catch (dbError) {
-        console.warn('Could not fetch health data, using defaults:', dbError.message);
-        // Continue with default values
-      }
-
-      // Generate Simmi Ji diet plan format using the class method
-      const dietPlan = HealthController.prototype.generateSimmiJiDietPlan(
-        dailyCalories, 
-        userName, 
-        userAge, 
-        userWeight, 
-        userHeight, 
-        bmiCategory, 
-        parseInt(userId)
-      );
-
-      res.status(200).json({
+      // No diet plan found in database - return null so frontend shows "Being Prepared" message
+      // NO automatic fallback generation - diet plan must be uploaded by assigned dietitian
+      return res.status(200).json({
         success: true,
-        data: {
-          ...dietPlan,
-          source: 'generated'
-        }
+        data: null,
+        message: 'No diet plan uploaded yet. Please wait for your assigned dietitian to upload your personalized diet plan.'
       });
 
     } catch (error) {
@@ -2638,6 +2576,462 @@ class HealthController {
       res.status(500).json({
         success: false,
         message: 'Failed to get progress summary',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Upload a diet PDF file, parse it, and save the diet plan to database
+   * POST /api/health/doctor/upload-diet-pdf
+   */
+  async uploadAndParseDietPDF(req, res) {
+    try {
+      // Check if file was uploaded
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          message: 'No file uploaded. Please upload a PDF file.'
+        });
+      }
+
+      // Verify doctor authorization
+      if (!req.admin || !req.admin.id) {
+        return res.status(401).json({
+          success: false,
+          message: 'Unauthorized - Doctor authentication required'
+        });
+      }
+
+      const { userId } = req.body;
+
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          message: 'User ID is required'
+        });
+      }
+
+      const doctorId = req.admin.id;
+      const pdfPath = req.file.path;
+
+      // Import the PDF extraction service
+      const pdfExtractionService = require('../services/pdfExtractionService');
+
+      // Parse the PDF - cleanup is now handled inside the service
+      const dietPlan = await pdfExtractionService.parseDietPlanPDF(pdfPath);
+
+      // Import models
+      const { DietPlan } = require('../models');
+
+      // Check if there's already a current diet plan for this user
+      let existingPlan = await DietPlan.findOne({
+        where: {
+          userId: parseInt(userId),
+          isCurrent: true
+        }
+      });
+
+      if (existingPlan) {
+        // Mark all existing plans as not current
+        await DietPlan.update(
+          { isCurrent: false },
+          { where: { userId: parseInt(userId) } }
+        );
+      }
+
+      // Create new diet plan from parsed PDF
+      const newPlan = await DietPlan.create({
+        userId: parseInt(userId),
+        doctorId: doctorId,
+        planName: `Diet Plan - ${new Date().toISOString().split('T')[0]}`,
+        userName: dietPlan.userName || 'User',
+        profileData: dietPlan.profile || {},
+        nutritionTargets: dietPlan.nutritionTargets || {},
+        dailySchedule: dietPlan.dailySchedule || [],
+        lateNightOptions: dietPlan.lateNightOptions || [],
+        importantPoints: dietPlan.importantPoints || [],
+        portionSizeReference: dietPlan.portionSizeReference || {},
+        goals: dietPlan.goals || [],
+        isActive: true,
+        isCurrent: true
+      });
+
+      // Cleanup is handled by pdfExtractionService.parseDietPlanPDF in its finally block
+
+      res.status(201).json({
+        success: true,
+        message: 'Diet plan uploaded and parsed successfully',
+        data: {
+          id: newPlan.id,
+          userId: newPlan.userId,
+          userName: newPlan.userName,
+          planName: newPlan.planName,
+          nutritionTargets: newPlan.nutritionTargets,
+          dailyScheduleCount: dietPlan.dailySchedule?.length || 0,
+          goals: newPlan.goals || [],
+          createdAt: newPlan.createdAt
+        }
+      });
+
+    } catch (error) {
+      console.error('Upload and parse diet PDF error:', error);
+      
+      // Safety net cleanup - try to clean up file if it exists
+      // This handles cases where service might not have cleaned up (e.g., early errors)
+      if (pdfPath) {
+        try {
+          const pdfExtractionService = require('../services/pdfExtractionService');
+          await pdfExtractionService.cleanupFile(pdfPath);
+        } catch (cleanupError) {
+          console.warn('Cleanup error in catch block:', cleanupError.message);
+        }
+      }
+      
+      res.status(500).json({
+        success: false,
+        message: 'Failed to upload and parse diet PDF',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Parse diet plan text content directly (for manual input or testing)
+   * POST /api/health/diet/parse-text
+   */
+  async parseDietPlanText(req, res) {
+    try {
+      // Check for validation errors
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: errors.array()
+        });
+      }
+
+      // Verify doctor authorization
+      if (!req.admin || !req.admin.id) {
+        return res.status(401).json({
+          success: false,
+          message: 'Unauthorized - Doctor authentication required'
+        });
+      }
+
+      const { text, userId } = req.body;
+
+      if (!text || text.length < 50) {
+        return res.status(400).json({
+          success: false,
+          message: 'Text content must be at least 50 characters'
+        });
+      }
+
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          message: 'User ID is required'
+        });
+      }
+
+      const doctorId = req.admin.id;
+
+      // Import the PDF extraction service
+      const pdfExtractionService = require('../services/pdfExtractionService');
+
+      // Parse the text content
+      const dietPlan = pdfExtractionService.parseDietPlanFromText(text);
+
+      // Import models
+      const { DietPlan } = require('../models');
+
+      // Check if there's already a current diet plan for this user
+      let existingPlan = await DietPlan.findOne({
+        where: {
+          userId: parseInt(userId),
+          isCurrent: true
+        }
+      });
+
+      if (existingPlan) {
+        // Mark all existing plans as not current
+        await DietPlan.update(
+          { isCurrent: false },
+          { where: { userId: parseInt(userId) } }
+        );
+      }
+
+      // Create new diet plan from parsed text
+      const newPlan = await DietPlan.create({
+        userId: parseInt(userId),
+        doctorId: doctorId,
+        planName: `Diet Plan - ${new Date().toISOString().split('T')[0]}`,
+        userName: dietPlan.userName || 'User',
+        profileData: dietPlan.profile || {},
+        nutritionTargets: dietPlan.nutritionTargets || {},
+        dailySchedule: dietPlan.dailySchedule || [],
+        lateNightOptions: dietPlan.lateNightOptions || [],
+        importantPoints: dietPlan.importantPoints || [],
+        portionSizeReference: dietPlan.portionSizeReference || {},
+        goals: dietPlan.goals || [],
+        isActive: true,
+        isCurrent: true
+      });
+
+      res.status(201).json({
+        success: true,
+        message: 'Diet plan parsed and saved successfully',
+        data: {
+          id: newPlan.id,
+          userId: newPlan.userId,
+          userName: newPlan.userName,
+          planName: newPlan.planName,
+          nutritionTargets: newPlan.nutritionTargets,
+          dailyScheduleCount: dietPlan.dailySchedule?.length || 0,
+          goals: newPlan.goals || [],
+          parsedData: dietPlan,
+          createdAt: newPlan.createdAt
+        }
+      });
+
+    } catch (error) {
+      console.error('Parse diet plan text error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to parse diet plan text',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Get diet summary for sidebar display
+   * GET /api/health/sidebar-diet-summary/:userId
+   * 
+   * Returns:
+   * - Today's diet schedule (what user should eat)
+   * - Today's logged meals (what user has eaten)
+   * - Calories summary (target vs actual)
+   * - Meals progress
+   */
+  async getSidebarDietSummary(req, res) {
+    try {
+      const { userId } = req.params;
+      const userIdInt = parseInt(userId);
+
+      // Get today's date
+      const today = new Date();
+      const todayStr = today.toISOString().split('T')[0];
+
+      // Import models
+      const { DietPlan, DailyMealActivity, BMICalculation, HealthProfile } = require('../models');
+
+      // 1. Get user's current diet plan
+      const dietPlan = await DietPlan.findOne({
+        where: {
+          userId: userIdInt,
+          isCurrent: true,
+          isActive: true
+        }
+      });
+
+      // 2. Get today's logged meals
+      const todayMeals = await DailyMealActivity.findAll({
+        where: {
+          userId: userIdInt,
+          date: todayStr
+        },
+        order: [['createdAt', 'ASC']]
+      });
+
+      // 3. Get target calories from BMI calculation
+      const bmiCalculation = await BMICalculation.findOne({
+        where: { userId: userIdInt },
+        order: [['createdAt', 'DESC']]
+      });
+
+      const targetCalories = bmiCalculation?.dailyCalories || 2000;
+
+      // 4. Get user's health profile for weight info
+      const healthProfile = await HealthProfile.findOne({
+        where: {
+          userId: userIdInt,
+          isCurrent: true
+        }
+      });
+
+      // Build today's diet schedule (what user should eat)
+      let todaySchedule = [];
+      if (dietPlan && dietPlan.dailySchedule) {
+        try {
+          const schedule = typeof dietPlan.dailySchedule === 'string'
+            ? JSON.parse(dietPlan.dailySchedule)
+            : dietPlan.dailySchedule;
+          
+          // Return the full schedule for sidebar display
+          todaySchedule = schedule.map(item => ({
+            time: item.time,
+            mealType: item.mealType,
+            title: item.title,
+            options: item.options || [],
+            tips: item.tips || ''
+          }));
+        } catch (e) {
+          console.error('Error parsing diet schedule:', e);
+        }
+      }
+
+      // Build logged meals (what user has eaten)
+      let loggedMeals = {};
+      let totalLoggedCalories = 0;
+      let totalLoggedProtein = 0;
+      let totalLoggedCarbs = 0;
+      let totalLoggedFats = 0;
+
+      todayMeals.forEach(meal => {
+        let mealCalories = 0;
+        let mealProtein = 0;
+        let mealCarbs = 0;
+        let mealFats = 0;
+
+        if (meal.selectedItems && Array.isArray(meal.selectedItems)) {
+          meal.selectedItems.forEach(item => {
+            if (item.calories) {
+              mealCalories += parseInt(item.calories) || 0;
+            }
+            if (item.macros) {
+              mealProtein += parseInt(item.macros.protein) || 0;
+              mealCarbs += parseInt(item.macros.carbs) || 0;
+              mealFats += parseInt(item.macros.fats) || 0;
+            } else if (item.protein) {
+              mealProtein += parseInt(item.protein) || 0;
+              mealCarbs += parseInt(item.carbs) || 0;
+              mealFats += parseInt(item.fats) || 0;
+            }
+          });
+        }
+
+        loggedMeals[meal.mealType] = {
+          mealType: meal.mealType,
+          items: meal.selectedItems || [],
+          notes: meal.notes,
+          calories: mealCalories,
+          protein: mealProtein,
+          carbs: mealCarbs,
+          fats: mealFats
+        };
+
+        totalLoggedCalories += mealCalories;
+        totalLoggedProtein += mealProtein;
+        totalLoggedCarbs += mealCarbs;
+        totalLoggedFats += mealFats;
+      });
+
+      // Calculate nutrition targets from diet plan
+      let nutritionTargets = null;
+      if (dietPlan && dietPlan.nutritionTargets) {
+        try {
+          const targets = typeof dietPlan.nutritionTargets === 'string'
+            ? JSON.parse(dietPlan.nutritionTargets)
+            : dietPlan.nutritionTargets;
+          
+          nutritionTargets = {
+            calories: targets.calories || `${targetCalories} kcal`,
+            protein: targets.protein || '75g',
+            carbs: targets.carbs || '150g',
+            fats: targets.fats || '35-40g',
+            fiber: targets.fiber || '25-30g'
+          };
+        } catch (e) {
+          console.error('Error parsing nutrition targets:', e);
+        }
+      }
+
+      // Calculate compliance percentage
+      const caloriesCompliance = targetCalories > 0 
+        ? Math.min(Math.round((totalLoggedCalories / targetCalories) * 100), 100)
+        : 0;
+
+      // Calculate meals progress
+      const mealTypes = ['breakfast', 'lunch', 'dinner', 'snacks', 'mid-morning', 'pre-workout', 'evening-snacks', 'bedtime'];
+      let completedMeals = 0;
+      let scheduledMeals = 0;
+
+      mealTypes.forEach(mealType => {
+        // Check if this meal type is scheduled (has options in the diet plan)
+        const isScheduled = todaySchedule.some(item => 
+          item.mealType && item.mealType.toLowerCase() === mealType.toLowerCase()
+        );
+        
+        if (isScheduled) {
+          scheduledMeals++;
+          if (loggedMeals[mealType] && loggedMeals[mealType].items && loggedMeals[mealType].items.length > 0) {
+            completedMeals++;
+          }
+        }
+      });
+
+      // Get goals if available
+      let goals = [];
+      if (dietPlan && dietPlan.goals) {
+        try {
+          goals = typeof dietPlan.goals === 'string'
+            ? JSON.parse(dietPlan.goals)
+            : dietPlan.goals;
+        } catch (e) {
+          console.error('Error parsing goals:', e);
+        }
+      }
+
+      res.status(200).json({
+        success: true,
+        data: {
+          date: todayStr,
+          userId: userIdInt,
+          dietPlan: {
+            hasPlan: !!dietPlan,
+            planName: dietPlan?.planName || null,
+            goals: goals
+          },
+          nutritionTargets,
+          todaySchedule,
+          loggedMeals: Object.values(loggedMeals),
+          calories: {
+            target: targetCalories,
+            consumed: totalLoggedCalories,
+            remaining: Math.max(targetCalories - totalLoggedCalories, 0),
+            compliance: caloriesCompliance
+          },
+          macros: {
+            protein: {
+              target: nutritionTargets?.protein ? parseInt(nutritionTargets.protein) : 75,
+              consumed: totalLoggedProtein
+            },
+            carbs: {
+              target: nutritionTargets?.carbs ? parseInt(nutritionTargets.carbs) : 150,
+              consumed: totalLoggedCarbs
+            },
+            fats: {
+              target: nutritionTargets?.fats ? parseInt(nutritionTargets.fats.split('-')[0]) : 35,
+              consumed: totalLoggedFats
+            }
+          },
+          mealsProgress: {
+            completed: completedMeals,
+            total: scheduledMeals,
+            percentage: scheduledMeals > 0 ? Math.round((completedMeals / scheduledMeals) * 100) : 0
+          },
+          weight: healthProfile?.weight ? parseFloat(healthProfile.weight) : null
+        }
+      });
+
+    } catch (error) {
+      console.error('Get sidebar diet summary error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to get diet summary',
         error: error.message
       });
     }

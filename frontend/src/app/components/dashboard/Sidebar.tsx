@@ -1,15 +1,45 @@
-import { LayoutDashboard, Calendar, Utensils, ClipboardList, TrendingUp, Dumbbell, Activity, Target, LogOut, Gift } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { LayoutDashboard, Calendar, Utensils, ClipboardList, TrendingUp, Dumbbell, Activity, Target, LogOut, Gift, Flame, Clock } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import apiService from '../../../services/api';
 
 interface SidebarProps {
   onLogout?: () => void;
 }
 
+interface MenuItem {
+  icon: React.ReactNode;
+  label: string;
+  path: string;
+  badge?: number;
+}
+
+interface DietSummary {
+  dietPlan: {
+    hasPlan: boolean;
+    planName: string | null;
+    goals: string[];
+  };
+  calories: {
+    target: number;
+    consumed: number;
+    remaining: number;
+    compliance: number;
+  };
+  nextMeal: {
+    mealType: string;
+    time: string;
+    title: string;
+  } | null;
+}
+
 export function Sidebar({ onLogout }: SidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const [dietSummary, setDietSummary] = useState<DietSummary | null>(null);
+  const [loadingDiet, setLoadingDiet] = useState(true);
 
-  const menuItems = [
+  const menuItems: MenuItem[] = [
     { icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', path: '/dashboard' },
     { icon: <Gift className="w-5 h-5" />, label: 'Referrals', path: '/dashboard/referrals' },
     { icon: <Activity className="w-5 h-5" />, label: 'Update Health Profile', path: '/dashboard/health-profile' },
@@ -21,12 +51,82 @@ export function Sidebar({ onLogout }: SidebarProps) {
     { icon: <ClipboardList className="w-5 h-5" />, label: 'Weekly Check-ins', path: '/dashboard/weekly-checkins' },
   ];
 
+  // Fetch diet summary on mount
+  useEffect(() => {
+    const fetchDietSummary = async () => {
+      try {
+        const userData = localStorage.getItem('neutrion-user-data');
+        if (userData) {
+          const user = JSON.parse(userData);
+          const response = await apiService.getSidebarDietSummary(user.id);
+          if (response.success && response.data) {
+            // Calculate next meal from today's schedule
+            const now = new Date();
+            const currentHour = now.getHours();
+            const today = new Date().toISOString().split('T')[0];
+            
+            let nextMeal = null;
+            if (response.data.todaySchedule && response.data.todaySchedule.length > 0) {
+              const sortedSchedule = [...response.data.todaySchedule].sort((a, b) => {
+                const timeA = a.time.split(':').map(Number);
+                const timeB = b.time.split(':').map(Number);
+                return (timeA[0] * 60 + timeA[1]) - (timeB[0] * 60 + timeB[1]);
+              });
+              
+              for (const meal of sortedSchedule) {
+                const [hours, minutes] = meal.time.split(':').map(Number);
+                const mealMinutes = hours * 60 + minutes;
+                if (mealMinutes > currentHour * 60 + now.getMinutes()) {
+                  nextMeal = {
+                    mealType: meal.mealType,
+                    time: meal.time,
+                    title: meal.title
+                  };
+                  break;
+                }
+              }
+              
+              // If no upcoming meal today, show the first meal of tomorrow
+              if (!nextMeal && sortedSchedule.length > 0) {
+                nextMeal = {
+                  mealType: sortedSchedule[0].mealType,
+                  time: sortedSchedule[0].time,
+                  title: sortedSchedule[0].title
+                };
+              }
+            }
+
+            setDietSummary({
+              dietPlan: response.data.dietPlan,
+              calories: response.data.calories,
+              nextMeal
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch diet summary:', error);
+      } finally {
+        setLoadingDiet(false);
+      }
+    };
+
+    fetchDietSummary();
+  }, []);
+
   const handleNavigation = (path: string) => {
     navigate(path);
   };
 
   const isActive = (path: string) => {
     return location.pathname === path;
+  };
+
+  const formatTime = (time: string) => {
+    const [hours, minutes] = time.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
   };
 
   return (
@@ -50,6 +150,63 @@ export function Sidebar({ onLogout }: SidebarProps) {
             </svg>
           </button>
         </div>
+
+        {/* Diet Summary Card */}
+        {loadingDiet ? (
+          <div className="mb-6 p-4 bg-gradient-to-br from-[#C5E17A]/20 to-[#FF6B4A]/10 rounded-xl animate-pulse">
+            <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+            <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+          </div>
+        ) : dietSummary ? (
+          <div className="mb-6 p-4 bg-gradient-to-br from-[#C5E17A]/20 to-[#FF6B4A]/10 rounded-xl">
+            {/* Diet Plan Status */}
+            <div className="flex items-center gap-2 mb-3">
+              <div className={`w-2 h-2 rounded-full ${dietSummary.dietPlan.hasPlan ? 'bg-green-500' : 'bg-orange-500'}`}></div>
+              <span className="text-xs font-medium text-gray-600">
+                {dietSummary.dietPlan.hasPlan ? 'Diet Plan Ready' : 'Awaiting Diet Plan'}
+              </span>
+            </div>
+
+            {/* Calories Progress */}
+            <div className="mb-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-gray-500">Today's Calories</span>
+                <span className="text-xs font-semibold text-gray-700">
+                  {dietSummary.calories.consumed} / {dietSummary.calories.target} kcal
+                </span>
+              </div>
+              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-[#C5E17A] to-[#FF6B4A] rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(dietSummary.calories.compliance, 100)}%` }}
+                ></div>
+              </div>
+              <div className="flex justify-between mt-1">
+                <span className="text-[10px] text-gray-400">{dietSummary.calories.compliance}% complete</span>
+                <span className="text-[10px] text-gray-400">{dietSummary.calories.remaining} remaining</span>
+              </div>
+            </div>
+
+            {/* Next Meal */}
+            {dietSummary.nextMeal && (
+              <div className="flex items-center gap-2 p-2 bg-white/60 rounded-lg">
+                <Clock className="w-4 h-4 text-[#FF6B4A]" />
+                <div>
+                  <p className="text-[10px] text-gray-500">Next Meal</p>
+                  <p className="text-xs font-medium text-gray-700 capitalize">
+                    {dietSummary.nextMeal.mealType} • {formatTime(dietSummary.nextMeal.time)}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {!dietSummary.dietPlan.hasPlan && (
+              <div className="mt-2 text-[10px] text-gray-500">
+                Complete your health profile to get a personalized diet plan
+              </div>
+            )}
+          </div>
+        ) : null}
 
         <nav className="space-y-1">
           {menuItems.map((item, index) => (
