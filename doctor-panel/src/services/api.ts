@@ -18,7 +18,7 @@ export interface DietFile {
   updatedAt: string;
 }
 
-const API_BASE_URL = 'http://localhost:3002/api';
+const API_BASE_URL = 'https://api.nutreazy.in/api';
 
 // Token storage keys
 const TOKEN_KEY = 'doctor_panel_token';
