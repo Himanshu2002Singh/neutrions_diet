@@ -1,6 +1,6 @@
 // API service for backend communication
 // Use import.meta.env for Vite environment variables
-const API_BASE_URL =  'http://localhost:3002';
+const API_BASE_URL =  'https://api.nutreazy.in';
 
 export interface HealthFormData {
   weight: number;
