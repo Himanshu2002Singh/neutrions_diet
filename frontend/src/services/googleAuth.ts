@@ -2,7 +2,7 @@
 // Uses Google Identity Services (GIS) SDK with FedCM support for account detection
 
 const GOOGLE_CLIENT_ID = '569194456128-o6j4g39gnlkooobeigim22jum5f13gp6.apps.googleusercontent.com';
-const API_URL = 'http://localhost:3002';
+const API_URL = 'https://api.nutreazy.in';
 
 interface GoogleUser {
   id?: number;
