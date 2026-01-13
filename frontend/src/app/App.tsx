@@ -12,6 +12,7 @@ import { Dashboard } from './components/Dashboard';
 import { Health_Profile } from './components/dashboard/Health_Profile';
 import { WorkoutPlans } from './components/dashboard/WorkoutPlans';
 import { LoginModal } from './components/LoginModal';
+import { SplashScreen } from './components/SplashScreen';
 import { BMICalculation } from '../types/health';
 import { googleAuthService } from '../services/googleAuth';
 
@@ -23,6 +24,7 @@ interface User {
 
 export default function App() {
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [profileData, setProfileData] = useState<any>(null);
   const navigate = useNavigate();
@@ -30,6 +32,9 @@ export default function App() {
 
   // Check for existing user on app load
   useEffect(() => {
+    // Always show splash screen on every visit
+    setShowSplash(true);
+
     const savedUser = localStorage.getItem('neutrion-user');
     if (savedUser) {
       setUser(JSON.parse(savedUser));
@@ -49,6 +54,10 @@ export default function App() {
       fetchUserFromToken(token);
     }
   }, []);
+
+  const handleSplashComplete = () => {
+    setShowSplash(false);
+  };
 
   const fetchUserFromToken = async (authToken: string) => {
     try {
@@ -145,6 +154,8 @@ export default function App() {
             onHealthProfileComplete={handleHeroDietGenerate}
             onBookDietitian={handleBookDietitian}
           />
+         <MenuSection />
+
           <FeatureCards />
           <FarmFreshSection onStartJourneyClick={() => {
             if (!user) {
@@ -153,9 +164,9 @@ export default function App() {
               navigate('/dashboard/workout-plans');
             }
           }} />
-          <MenuSection />
+          
           <BenefitsSection />
-          <TestimonialsSection />
+          
         </div>
         <Footer />
       </div>
@@ -240,7 +251,11 @@ export default function App() {
   );
 
   return (
-    <Routes>
+    <>
+      {/* Splash Screen - shown only on first visit */}
+      {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
+      
+      <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/dashboard" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} />} />
       <Route path="/dashboard/home" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} />} />
@@ -254,5 +269,6 @@ export default function App() {
       <Route path="/dashboard/weekly-checkins" element={<Dashboard initialProfileData={profileData} onLogout={handleLogout} user={user} />} />
       <Route path="/health-profile" element={<HealthProfilePage />} />
     </Routes>
+    </>
   );
 }

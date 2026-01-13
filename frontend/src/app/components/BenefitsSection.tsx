@@ -49,7 +49,7 @@ export function BenefitsSection() {
         <h2 className="text-3xl lg:text-5xl font-bold mb-6 lg:mb-8 leading-tight">
           Why Choose
           <br className="hidden lg:block" />
-          <span className="text-[#FF6B4A]">Neutrion Diet</span>
+          <span className="text-[#FF6B4A]">Nutreazy</span>
         </h2>
         <div className="space-y-3 lg:space-y-4">
           {benefits.map((benefit, index) => (

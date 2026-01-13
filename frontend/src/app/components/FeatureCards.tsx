@@ -10,20 +10,7 @@ export function FeatureCards() {
       bgColor: 'bg-[#C5E17A]',
       textColor: 'text-black',
     },
-    {
-      icon: <TrendingUp className="w-8 h-8" />,
-      title: 'Progress Monitoring',
-      description: 'Track your weight, nutrition intake, and fitness milestones. Monitor your health journey with detailed progress reports and achievements.',
-      bgColor: 'bg-[#FFC878]',
-      textColor: 'text-black',
-    },
-    {
-      icon: <MessageCircle className="w-8 h-8" />,
-      title: 'AI Coach Ria',
-      description: 'Chat with AI coach Ria for personalized meal suggestions, calorie goals, and motivational reminders tailored to your lifestyle.',
-      bgColor: 'bg-[#FF8A65]',
-      textColor: 'text-white',
-    },
+    
     {
       icon: <Dumbbell className="w-8 h-8" />,
       title: 'Workout Plans',
