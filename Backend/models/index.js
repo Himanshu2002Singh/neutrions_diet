@@ -14,6 +14,7 @@ const ChatConversation = require('./ChatConversation');
 const ChatMessage = require('./ChatMessage');
 const Task = require('./Task');
 const DoctorTask = require('./DoctorTask');
+const PricePlan = require('./PricePlan');
 
 // Define associations
 User.hasMany(HealthProfile, { foreignKey: 'userId', as: 'healthProfiles' });
@@ -126,5 +127,6 @@ module.exports = {
   ChatConversation,
   ChatMessage,
   Task,
-  DoctorTask
+  DoctorTask,
+  PricePlan
 };

@@ -1,7 +1,7 @@
 // API service for backend communication
 // Use import.meta.env for Vite environment variables
 const API_BASE_URL =  'https://api.nutreazy.in';
-
+// const API_BASE_URL =  'http://localhost:3002';
 export interface HealthFormData {
   weight: number;
   height: number;
@@ -110,6 +110,46 @@ export interface UserReferrals {
   }>;
 }
 
+// Price Plan interfaces
+export interface PricePlan {
+  id: number;
+  name: string;
+  description: string;
+  price: string;
+  image: string | null;
+  badge: string | null;
+  offer: string | null;
+  color: string;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PricePlanCreationData {
+  name: string;
+  description: string;
+  price: string;
+  image?: string;
+  badge?: string;
+  offer?: string;
+  color?: string;
+  isActive?: boolean;
+  sortOrder?: number;
+}
+
+export interface PricePlanUpdateData {
+  name?: string;
+  description?: string;
+  price?: string;
+  image?: string;
+  badge?: string;
+  offer?: string;
+  color?: string;
+  isActive?: boolean;
+  sortOrder?: number;
+}
+
 class ApiService {
   private async makeRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
     try {
@@ -123,19 +163,20 @@ class ApiService {
         tokenPreview: token ? token.substring(0, 20) + '...' : null
       });
       
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      };
+      const mergedHeaders = new Headers(options?.headers as HeadersInit);
+      // Ensure Content-Type
+      if (!mergedHeaders.has('Content-Type')) {
+        mergedHeaders.set('Content-Type', 'application/json');
+      }
       
       // Add Authorization header if token exists
       if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+        mergedHeaders.set('Authorization', `Bearer ${token}`);
       }
       
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        headers,
         ...options,
+        headers: mergedHeaders,
       });
 
       const data = await response.json();
@@ -851,6 +892,70 @@ class ApiService {
     };
   }> {
     return this.makeRequest(`/api/health/sidebar-diet-summary/${userId}`);
+  }
+
+  // ============ Price Plans API Methods ============
+
+  // Get all price plans (active only for public)
+  async getAllPricePlans(includeInactive: boolean = false): Promise<{
+    success: boolean;
+    data: PricePlan[];
+  }> {
+    const params = includeInactive ? '?includeInactive=true' : '';
+    return this.makeRequest(`/api/price-plans${params}`);
+  }
+
+  // Get a specific price plan by ID
+  async getPricePlan(planId: number): Promise<{
+    success: boolean;
+    data: PricePlan;
+  }> {
+    return this.makeRequest(`/api/price-plans/${planId}`);
+  }
+
+  // Create a new price plan (requires authentication)
+  async createPricePlan(planData: PricePlanCreationData): Promise<{
+    success: boolean;
+    message: string;
+    data: PricePlan;
+  }> {
+    return this.makeRequest('/api/price-plans', {
+      method: 'POST',
+      body: JSON.stringify(planData),
+    });
+  }
+
+  // Update a price plan (requires authentication)
+  async updatePricePlan(planId: number, updateData: PricePlanUpdateData): Promise<{
+    success: boolean;
+    message: string;
+    data: PricePlan;
+  }> {
+    return this.makeRequest(`/api/price-plans/${planId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updateData),
+    });
+  }
+
+  // Delete a price plan (soft delete, requires authentication)
+  async deletePricePlan(planId: number): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    return this.makeRequest(`/api/price-plans/${planId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Reorder price plans (requires authentication)
+  async reorderPricePlans(planIds: number[]): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    return this.makeRequest('/api/price-plans/reorder', {
+      method: 'POST',
+      body: JSON.stringify({ planIds }),
+    });
   }
 }
 

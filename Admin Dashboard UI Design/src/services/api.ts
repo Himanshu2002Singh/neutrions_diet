@@ -1,6 +1,6 @@
 // API service for Admin Dashboard
 const API_BASE_URL = 'https://api.nutreazy.in';
-
+// const API_BASE_URL = 'http://localhost:3002';
 export interface User {
   id: number;
   name: string;
@@ -248,6 +248,49 @@ export interface Doctor {
   lastName: string;
   email: string;
   category: string | null;
+}
+
+// ============================================
+// Price Plans API Types
+// ============================================
+
+export interface PricePlan {
+  id: number;
+  name: string;
+  description: string;
+  price: string;
+  image: string | null;
+  badge: string | null;
+  offer: string | null;
+  color: string;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PricePlanCreationData {
+  name: string;
+  description: string;
+  price: string;
+  image?: string;
+  badge?: string;
+  offer?: string;
+  color?: string;
+  isActive?: boolean;
+  sortOrder?: number;
+}
+
+export interface PricePlanUpdateData {
+  name?: string;
+  description?: string;
+  price?: string;
+  image?: string;
+  badge?: string;
+  offer?: string;
+  color?: string;
+  isActive?: boolean;
+  sortOrder?: number;
 }
 
 class ApiService {
@@ -590,6 +633,72 @@ class ApiService {
   async getTaskStats(): Promise<{ success: boolean; data: TaskStats }> {
     return this.makeRequest('/api/tasks/stats');
   }
+
+  // ============================================
+  // Price Plans API Methods
+  // ============================================
+
+  // Get all price plans
+  async getAllPricePlans(includeInactive: boolean = false): Promise<{
+    success: boolean;
+    data: PricePlan[];
+  }> {
+    const params = includeInactive ? '?includeInactive=true' : '';
+    return this.makeRequest(`/api/price-plans${params}`);
+  }
+
+  // Get a specific price plan by ID
+  async getPricePlan(planId: number): Promise<{
+    success: boolean;
+    data: PricePlan;
+  }> {
+    return this.makeRequest(`/api/price-plans/${planId}`);
+  }
+
+  // Create a new price plan
+  async createPricePlan(planData: PricePlanCreationData): Promise<{
+    success: boolean;
+    message: string;
+    data: PricePlan;
+  }> {
+    return this.makeRequest('/api/price-plans', {
+      method: 'POST',
+      body: JSON.stringify(planData),
+    });
+  }
+
+  // Update a price plan
+  async updatePricePlan(planId: number, updateData: PricePlanUpdateData): Promise<{
+    success: boolean;
+    message: string;
+    data: PricePlan;
+  }> {
+    return this.makeRequest(`/api/price-plans/${planId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updateData),
+    });
+  }
+
+  // Delete a price plan (soft delete)
+  async deletePricePlan(planId: number): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    return this.makeRequest(`/api/price-plans/${planId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Reorder price plans
+  async reorderPricePlans(planIds: number[]): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    return this.makeRequest('/api/price-plans/reorder', {
+      method: 'POST',
+      body: JSON.stringify({ planIds }),
+    });
+  }
 }
 
 // Create a singleton instance
@@ -597,7 +706,6 @@ export const apiService = new ApiService();
 
 // ============================================
 // Task Management API Functions
-// These are standalone exports for convenience
 // ============================================
 
 export async function getAllTasks(
@@ -635,6 +743,34 @@ export async function getAllDoctors() {
 
 export async function getTaskStats() {
   return apiService.getTaskStats();
+}
+
+// ============================================
+// Price Plans API Functions
+// ============================================
+
+export async function getAllPricePlans(includeInactive: boolean = false) {
+  return apiService.getAllPricePlans(includeInactive);
+}
+
+export async function getPricePlan(planId: number) {
+  return apiService.getPricePlan(planId);
+}
+
+export async function createPricePlan(planData: PricePlanCreationData) {
+  return apiService.createPricePlan(planData);
+}
+
+export async function updatePricePlan(planId: number, updateData: PricePlanUpdateData) {
+  return apiService.updatePricePlan(planId, updateData);
+}
+
+export async function deletePricePlan(planId: number) {
+  return apiService.deletePricePlan(planId);
+}
+
+export async function reorderPricePlans(planIds: number[]) {
+  return apiService.reorderPricePlans(planIds);
 }
 
 // Export the class for testing

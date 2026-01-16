@@ -3,6 +3,7 @@
 
 const GOOGLE_CLIENT_ID = '569194456128-o6j4g39gnlkooobeigim22jum5f13gp6.apps.googleusercontent.com';
 const API_URL = 'https://api.nutreazy.in';
+// const API_URL =  'http://localhost:3002'
 
 interface GoogleUser {
   id?: number;
@@ -45,7 +46,7 @@ class GoogleAuthService {
   // Initialize Google Identity Services
   async initialize(): Promise<void> {
     return new Promise((resolve, reject) => {
-      if (typeof window.google === 'undefined') {
+      if (typeof (window as any).google === 'undefined') {
         // Load the Google Identity Services script
         const script = document.createElement('script');
         script.src = 'https://accounts.google.com/gsi/client';
@@ -66,7 +67,7 @@ class GoogleAuthService {
 
   private initGoogleSignIn(resolve: () => void, reject: (error: Error) => void): void {
     try {
-      (window.google.accounts as any).id.initialize({
+      ((window as any).google.accounts as any).id.initialize({
         client_id: this.clientId,
         callback: (response: any) => {
           this.handleCredentialResponse(response);
@@ -157,13 +158,13 @@ class GoogleAuthService {
   // Get list of saved accounts for custom account picker
   async getSavedAccounts(): Promise<any[]> {
     return new Promise((resolve) => {
-      if (typeof window.google === 'undefined') {
+      if (typeof (window as any).google === 'undefined') {
         resolve([]);
         return;
       }
 
       try {
-        (window.google.accounts as any).id.prompt((notification: any) => {
+        ((window as any).google.accounts as any).id.prompt((notification: any) => {
           // Get account info from the notification if available
           if (notification.isDisplayed() && notification.getAccountHint) {
             // Account hint is available
@@ -172,7 +173,7 @@ class GoogleAuthService {
         });
         
         // Also try direct account listing
-        (window.google.accounts as any).id.ready?.then(() => {
+        ((window as any).google.accounts as any).id.ready?.then(() => {
           // Accounts might be cached
         });
       } catch (error) {
@@ -207,13 +208,13 @@ class GoogleAuthService {
 
   // Render the One Tap prompt (optional, call this on page load)
   async showOneTapPrompt(): Promise<void> {
-    if (typeof window.google === 'undefined' || this.isPromptShown) {
+    if (typeof (window as any).google === 'undefined' || this.isPromptShown) {
       return;
     }
 
     try {
       this.isPromptShown = true;
-      await (window.google.accounts as any).id.prompt();
+      await ((window as any).google.accounts as any).id.prompt();
     } catch (error) {
       console.log('One Tap prompt could not be shown:', error);
       this.isPromptShown = false;
@@ -222,16 +223,16 @@ class GoogleAuthService {
 
   // Cancel the One Tap prompt
   cancelOneTapPrompt(): void {
-    if (typeof window.google !== 'undefined') {
-      (window.google.accounts as any).id.cancel();
+    if (typeof (window as any).google !== 'undefined') {
+      ((window as any).google.accounts as any).id.cancel();
       this.isPromptShown = false;
     }
   }
 
   // Show the rendered Google Sign-In button in a container
   showSignInButton(container: HTMLElement): void {
-    if (typeof window.google !== 'undefined') {
-      (window.google.accounts as any).id.renderButton(container, {
+    if (typeof (window as any).google !== 'undefined') {
+      ((window as any).google.accounts as any).id.renderButton(container, {
         theme: 'outline',
         size: 'large',
         width: '100%',
@@ -275,8 +276,8 @@ class GoogleAuthService {
     sessionStorage.removeItem('google_access_token');
 
     // Sign out from Google
-    if (typeof window.google !== 'undefined') {
-      (window.google.accounts as any).id.disableAutoSelect();
+    if (typeof (window as any).google !== 'undefined') {
+      ((window as any).google.accounts as any).id.disableAutoSelect();
     }
   }
 

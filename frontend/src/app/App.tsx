@@ -157,13 +157,13 @@ export default function App() {
          <MenuSection />
 
           <FeatureCards />
-          <FarmFreshSection onStartJourneyClick={() => {
+          {/* <FarmFreshSection onStartJourneyClick={() => {
             if (!user) {
               setShowLoginModal(true);
             } else {
               navigate('/dashboard/workout-plans');
             }
-          }} />
+          }} /> */}
           
           <BenefitsSection />
           

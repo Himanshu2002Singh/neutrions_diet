@@ -16,6 +16,7 @@ import DashboardHome from './dashboard/DashboardHome';
 import HealthInsights from './dashboard/HealthInsights';
 import DietitianSupport from './dashboard/DietitianSupport';
 
+
 interface User {
   name: string;
   email: string;
@@ -36,12 +37,14 @@ export function Dashboard({ initialProfileData, onLogout, defaultView, user }: D
   const [medicalConditions, setMedicalConditions] = useState('');
   const [dashboardUser, setDashboardUser] = useState<User | null>(user || null);
   const [headerTitle, setHeaderTitle] = useState('Dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Map routes to view names
   const routeToViewMap: Record<string, string> = {
     '/dashboard': 'home',
     '/dashboard/home': 'home',
     '/dashboard/referrals': 'referrals',
+    '/dashboard/price-plans': 'price-plans',
     '/dashboard/health-profile': 'health-profile',
     '/dashboard/personalized-diet': 'personalized-diet',
     '/dashboard/workout-plans': 'workout-plans',
@@ -118,6 +121,22 @@ export function Dashboard({ initialProfileData, onLogout, defaultView, user }: D
     setMedicalConditions(conditions);
   };
 
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+  };
+
+  const closeSidebar = () => {
+    setIsSidebarOpen(false);
+  };
+
+  // Close sidebar when navigating on mobile
+  const handleNavigation = (path: string) => {
+    navigate(path);
+    // Close sidebar on mobile after navigation
+    if (window.innerWidth < 1024) {
+      closeSidebar();
+    }
+  };
 
   const renderMainContent = () => {
     switch (activeView) {
@@ -160,6 +179,7 @@ export function Dashboard({ initialProfileData, onLogout, defaultView, user }: D
         return <WeeklyProgress />;
       case 'referrals':
         return <Referrals onHeaderChange={setHeaderTitle} />;
+      
       case 'health-insights':
         return <HealthInsights />;
       case 'dietitian-support':
@@ -190,9 +210,25 @@ export function Dashboard({ initialProfileData, onLogout, defaultView, user }: D
 
   return (
     <div className="bg-gray-50 min-h-screen">
-      <Sidebar onLogout={onLogout} />
-      <div className="lg:ml-64 ">
-        <DashboardHeader user={dashboardUser} title={headerTitle} />
+      <Sidebar 
+        onLogout={onLogout} 
+        isOpen={isSidebarOpen} 
+        onClose={closeSidebar}
+        onNavigate={handleNavigation}
+      />
+      {/* Mobile overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={closeSidebar}
+        />
+      )}
+      <div className={`lg:ml-64 transition-all duration-300 ${isSidebarOpen ? 'lg:ml-64' : 'lg:ml-64'}`}>
+        <DashboardHeader 
+          user={dashboardUser} 
+          title={headerTitle} 
+          onMenuClick={toggleSidebar}
+        />
         <main className="p-4 lg:p-8">
           {renderMainContent()}
         </main>

@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, UserPlus, Users, TrendingUp, UsersRound, LogOut, Menu, X, Gift, FileText, CheckSquare } from 'lucide-react';
+import { LayoutDashboard, UserPlus, Users, TrendingUp, UsersRound, LogOut, Menu, X, Gift, FileText, CheckSquare, DollarSign } from 'lucide-react';
 import { useState } from 'react';
 
 const navItems = [
@@ -9,6 +9,7 @@ const navItems = [
   { path: '/check-progress', label: 'Check Progress', icon: TrendingUp },
   { path: '/user-diet-report', label: 'User Diet Report', icon: FileText },
   { path: '/task-management', label: 'Task Management', icon: CheckSquare },
+  { path: '/price-plans', label: 'Price Plans', icon: DollarSign },
   { path: '/all-users', label: 'All Users', icon: UsersRound },
   { path: '/referrals', label: 'Referrals', icon: Gift },
 ];

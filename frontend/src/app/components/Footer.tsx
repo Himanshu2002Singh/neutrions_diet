@@ -109,7 +109,7 @@ export function Footer() {
       {/* Copyright */}
       <div className="mt-8 pt-6 border-t border-yellow-300 text-center">
         <p className="text-sm text-gray-600 mb-2">
-          © 2026 Neutrion Diet. All rights reserved.
+          © 2026 Nutreazy. All rights reserved.
         </p>
         
       </div>

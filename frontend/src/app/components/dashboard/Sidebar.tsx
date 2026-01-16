@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, Calendar, Utensils, ClipboardList, TrendingUp, Dumbbell, Activity, Target, LogOut, Gift, Flame, Clock } from 'lucide-react';
+import { LayoutDashboard, Calendar, Utensils, ClipboardList, TrendingUp, Dumbbell, Activity, Target, LogOut, Gift, Flame, Clock, DollarSign } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import apiService from '../../../services/api';
 
 interface SidebarProps {
   onLogout?: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
+  onNavigate?: (path: string) => void;
 }
 
 interface MenuItem {
@@ -33,7 +36,7 @@ interface DietSummary {
   } | null;
 }
 
-export function Sidebar({ onLogout }: SidebarProps) {
+export function Sidebar({ onLogout, isOpen = false, onClose, onNavigate }: SidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [dietSummary, setDietSummary] = useState<DietSummary | null>(null);
@@ -42,7 +45,7 @@ export function Sidebar({ onLogout }: SidebarProps) {
   const menuItems: MenuItem[] = [
     { icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', path: '/dashboard' },
     { icon: <Gift className="w-5 h-5" />, label: 'Referrals', path: '/dashboard/referrals' },
-    { icon: <Activity className="w-5 h-5" />, label: 'Update Health Profile', path: '/dashboard/health-profile' },
+   { icon: <Activity className="w-5 h-5" />, label: 'Update Health Profile', path: '/dashboard/health-profile' },
     { icon: <Utensils className="w-5 h-5" />, label: 'Personalized Diet', path: '/dashboard/personalized-diet' },
     { icon: <Dumbbell className="w-5 h-5" />, label: 'Workout Plans', path: '/dashboard/workout-plans' },
     { icon: <TrendingUp className="w-5 h-5" />, label: 'Progress Tracking', path: '/dashboard/progress-tracking' },
@@ -58,14 +61,14 @@ export function Sidebar({ onLogout }: SidebarProps) {
         const userData = localStorage.getItem('neutrion-user-data');
         if (userData) {
           const user = JSON.parse(userData);
-          const response = await apiService.getSidebarDietSummary(user.id);
+          const response = await (apiService as any).getSidebarDietSummary(user.id);
           if (response.success && response.data) {
             // Calculate next meal from today's schedule
             const now = new Date();
             const currentHour = now.getHours();
             const today = new Date().toISOString().split('T')[0];
             
-            let nextMeal = null;
+            let nextMeal: DietSummary['nextMeal'] = null;
             if (response.data.todaySchedule && response.data.todaySchedule.length > 0) {
               const sortedSchedule = [...response.data.todaySchedule].sort((a, b) => {
                 const timeA = a.time.split(':').map(Number);
@@ -114,7 +117,18 @@ export function Sidebar({ onLogout }: SidebarProps) {
   }, []);
 
   const handleNavigation = (path: string) => {
-    navigate(path);
+    // Use onNavigate callback if provided, otherwise use navigate
+    if (onNavigate) {
+      onNavigate(path);
+    } else {
+      navigate(path);
+    }
+  };
+
+  const handleClose = () => {
+    if (onClose) {
+      onClose();
+    }
   };
 
   const isActive = (path: string) => {
@@ -132,9 +146,12 @@ export function Sidebar({ onLogout }: SidebarProps) {
   return (
     <>
       {/* Mobile menu overlay */}
-      <div className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40 hidden" id="sidebar-overlay"></div>
+      <div 
+        className={`lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        onClick={handleClose}
+      />
       
-      <aside className="w-64 bg-white border-r border-gray-200 h-screen p-6 fixed left-0 top-0 z-50 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out" id="sidebar">
+      <aside className={`w-64 bg-white border-r border-gray-200 h-screen p-6 fixed left-0 top-0 z-50 transition-transform duration-300 ease-in-out lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`} id="sidebar">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-2">
            
@@ -144,7 +161,11 @@ export function Sidebar({ onLogout }: SidebarProps) {
   className="h-8 lg:h-10 w-auto"
 />
           </div>
-          <button className="lg:hidden p-2 hover:bg-gray-100 rounded-lg" id="close-sidebar">
+          <button 
+            className="lg:hidden p-2 hover:bg-gray-100 rounded-lg" 
+            id="close-sidebar"
+            onClick={handleClose}
+          >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>

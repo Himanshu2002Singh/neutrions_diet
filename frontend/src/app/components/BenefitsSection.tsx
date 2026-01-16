@@ -1,6 +1,8 @@
-import { Plus } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, Minus } from 'lucide-react';
 
 export function BenefitsSection() {
+  const [openIndex, setOpenIndex] = useState<number | null>(0); // First item open by default
 
   const benefits = [
     {
@@ -30,6 +32,10 @@ export function BenefitsSection() {
     },
   ];
 
+  const toggleItem = (index: number) => {
+    setOpenIndex(openIndex === index ? null : index);
+  };
+
 
   return (
     <section className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 mb-12 items-center">
@@ -57,20 +63,32 @@ export function BenefitsSection() {
               key={index}
               className={`${
                 benefit.isHighlighted ? 'bg-[#C5E17A]' : 'bg-white border-2 border-gray-200'
-              } rounded-xl p-4 lg:p-5 flex items-start justify-between gap-4`}
+              } rounded-xl overflow-hidden transition-all duration-300`}
             >
-              <div className="flex-1">
-                <h3 className="font-bold text-base lg:text-lg mb-1">{benefit.title}</h3>
-                {benefit.isHighlighted && (
-                  <p className="text-sm opacity-80 leading-relaxed">{benefit.description}</p>
-                )}
-                {!benefit.isHighlighted && (
-                  <p className="text-xs lg:text-sm text-gray-600 opacity-80">{benefit.description}</p>
-                )}
+              <div
+                className="p-4 lg:p-5 flex items-start justify-between gap-4 cursor-pointer"
+                onClick={() => toggleItem(index)}
+              >
+                <h3 className="font-bold text-base lg:text-lg">{benefit.title}</h3>
+                <button 
+                  className="shrink-0 text-[#FF6B4A] focus:outline-none"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleItem(index);
+                  }}
+                >
+                  {openIndex === index ? <Minus className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                </button>
               </div>
-              <button className="text-xl lg:text-2xl font-bold shrink-0 text-[#FF6B4A]">
-                {benefit.isHighlighted ? '✓' : '+'}
-              </button>
+              <div 
+                className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                  openIndex === index ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'
+                }`}
+              >
+                <div className="px-4 lg:px-5 pb-4 lg:pb-5">
+                  <p className="text-sm opacity-80 leading-relaxed">{benefit.description}</p>
+                </div>
+              </div>
             </div>
           ))}
         </div>

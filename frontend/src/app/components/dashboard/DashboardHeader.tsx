@@ -9,9 +9,10 @@ interface User {
 interface DashboardHeaderProps {
   user?: User | null;
   title?: string;
+  onMenuClick?: () => void;
 }
 
-export function DashboardHeader({ user, title }: DashboardHeaderProps) {
+export function DashboardHeader({ user, title, onMenuClick }: DashboardHeaderProps) {
   // Use user data if available, otherwise show default
   const displayName = user?.name || 'Adam Vasyliev';
   const displayAvatar = user?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop';
@@ -19,7 +20,11 @@ export function DashboardHeader({ user, title }: DashboardHeaderProps) {
   return (
     <header className="bg-white border-b border-gray-200 px-4 lg:px-8 py-4 flex items-center justify-between">
       <div className="flex items-center gap-4">
-        <button className="lg:hidden p-2 hover:bg-gray-100 rounded-lg" id="menu-button">
+        <button 
+          className="lg:hidden p-2 hover:bg-gray-100 rounded-lg" 
+          id="menu-button"
+          onClick={onMenuClick}
+        >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
