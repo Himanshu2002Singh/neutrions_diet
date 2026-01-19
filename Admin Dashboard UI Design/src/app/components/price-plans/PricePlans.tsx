@@ -53,7 +53,7 @@ export default function PricePlans() {
       setError(null);
       
       const token = localStorage.getItem('neutrion-auth-token');
-      const response = await fetch('http://localhost:3002/api/price-plans?includeInactive=true', {
+      const response = await fetch('https://api.nutreazy.in/api/price-plans?includeInactive=true', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -127,8 +127,8 @@ export default function PricePlans() {
     try {
       const token = localStorage.getItem('neutrion-auth-token');
       const url = editingPlan
-        ? `http://localhost:3002/api/price-plans/${editingPlan.id}`
-        : 'http://localhost:3002/api/price-plans';
+        ? `https://api.nutreazy.in/api/price-plans/${editingPlan.id}`
+        : 'https://api.nutreazy.in/api/price-plans';
       const method = editingPlan ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
@@ -160,7 +160,7 @@ export default function PricePlans() {
 
     try {
       const token = localStorage.getItem('neutrion-auth-token');
-      const response = await fetch(`http://localhost:3002/api/price-plans/${planId}`, {
+      const response = await fetch(`https://api.nutreazy.in/api/price-plans/${planId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -185,7 +185,7 @@ export default function PricePlans() {
   const handleToggleActive = async (plan: PricePlan) => {
     try {
       const token = localStorage.getItem('neutrion-auth-token');
-      const response = await fetch(`http://localhost:3002/api/price-plans/${plan.id}`, {
+      const response = await fetch(`https://api.nutreazy.in/api/price-plans/${plan.id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
