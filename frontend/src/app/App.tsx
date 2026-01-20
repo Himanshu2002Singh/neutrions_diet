@@ -111,6 +111,14 @@ export default function App() {
     navigate('/health-profile');
   };
 
+  const handlePricePlansClick = () => {
+    // Scroll to MenuSection on the home page
+    const menuSection = document.getElementById('menu-section');
+    if (menuSection) {
+      menuSection.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   const handleHeroDietGenerate = (healthData: any) => {
     if (!user) {
       setShowLoginModal(true);
@@ -145,6 +153,7 @@ export default function App() {
         <Header 
           onLoginClick={handleLoginClick} 
           onHealthProfileClick={handleHealthProfileClick}
+          onPricePlansClick={handlePricePlansClick}
           user={user}
           onLogout={handleLogout}
           onDashboardClick={() => navigate('/dashboard')}
@@ -154,7 +163,9 @@ export default function App() {
             onHealthProfileComplete={handleHeroDietGenerate}
             onBookDietitian={handleBookDietitian}
           />
-         <MenuSection />
+          <div id="menu-section">
+            <MenuSection />
+          </div>
 
           <FeatureCards />
           {/* <FarmFreshSection onStartJourneyClick={() => {
@@ -187,6 +198,7 @@ export default function App() {
         <Header 
           onLoginClick={handleLoginClick} 
           onHealthProfileClick={handleHealthProfileClick}
+          onPricePlansClick={handlePricePlansClick}
           user={user}
           onLogout={handleLogout}
           onDashboardClick={() => navigate('/dashboard')}

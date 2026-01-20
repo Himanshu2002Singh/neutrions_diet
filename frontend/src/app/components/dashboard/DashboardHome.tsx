@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { User, Mail, Phone, MapPin, Calendar, Activity, Target, TrendingUp, Award, Utensils, Dumbbell, Star, AlertCircle } from 'lucide-react';
 import { apiService } from '../../../services/api';
+import { Link } from 'react-router-dom';
 
 interface UserData {
   name: string;
@@ -339,10 +340,10 @@ export default function DashboardHome() {
                   </div>
                 </div>
               </div>
-              
+              <Link to='/dashboard/dietitian-support' >
               <button className="w-full bg-[#C5E17A] hover:bg-[#b5d16a] text-black py-2 rounded-lg font-medium transition-colors">
                 Chat Now
-              </button>
+              </button></Link>
             </>
           ) : (
             <div className="text-center py-6">

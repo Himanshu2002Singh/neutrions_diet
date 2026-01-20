@@ -127,7 +127,7 @@ router.get('/my-code', auth, async (req, res) => {
       success: true,
       data: {
         referralCode: user.referralCode,
-        referralLink: user.referralCode ? `${process.env.FRONTEND_URL || 'http://localhost:5173'}?ref=${user.referralCode}` : null
+        referralLink: user.referralCode ? `https://www.nutreazy.in/?ref=${user.referralCode}` : null
       }
     });
     
@@ -286,7 +286,7 @@ router.get('/my-referrals', auth, async (req, res) => {
       success: true,
       data: {
         referralCode: user.referralCode,
-        referralLink: user.referralCode ? `${process.env.FRONTEND_URL || 'http://localhost:5173'}?ref=${user.referralCode}` : null,
+        referralLink: user.referralCode ? `https://www.nutreazy.in/?ref=${user.referralCode}` : null,
         totalReferrals: referrals.length,
         completedReferrals,
         pendingReferrals,

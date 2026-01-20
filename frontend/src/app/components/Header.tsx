@@ -12,13 +12,14 @@ interface User {
 interface HeaderProps {
   onLoginClick: () => void;
   onHealthProfileClick: () => void;
+  onPricePlansClick: () => void;
   user: User | null;
   onLogout: () => void;
   onDashboardClick: () => void;
 }
 
 
-export function Header({ onLoginClick, onHealthProfileClick, user, onLogout, onDashboardClick }: HeaderProps) {
+export function Header({ onLoginClick, onHealthProfileClick, onPricePlansClick, user, onLogout, onDashboardClick }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
@@ -47,9 +48,12 @@ export function Header({ onLoginClick, onHealthProfileClick, user, onLogout, onD
           {/* Desktop Navigation */}
 
           <nav className="hidden lg:flex gap-6 xl:gap-8">
-            <a href="#ingredients" className="hover:opacity-70 transition-opacity text-sm xl:text-base">
-              Exercise
-            </a>
+            <button 
+              onClick={onPricePlansClick}
+              className="hover:opacity-70 transition-opacity text-sm xl:text-base text-left"
+            >
+              Price Plans
+            </button>
            
             <button 
               onClick={onHealthProfileClick}
@@ -64,12 +68,12 @@ export function Header({ onLoginClick, onHealthProfileClick, user, onLogout, onD
 
           {/* Desktop Actions */}
           <div className="hidden lg:flex items-center gap-3 xl:gap-4">
-            <button className="p-2 hover:opacity-70 transition-opacity">
+            {/* <button className="p-2 hover:opacity-70 transition-opacity">
               <Search className="w-5 h-5" />
             </button>
             <button className="p-2 hover:opacity-70 transition-opacity">
               <ShoppingBag className="w-5 h-5" />
-            </button>
+            </button> */}
             
             {user ? (
               <>
@@ -123,10 +127,10 @@ export function Header({ onLoginClick, onHealthProfileClick, user, onLogout, onD
           <div className="lg:hidden absolute top-full left-0 right-0 bg-[#F8D94E] rounded-b-2xl shadow-lg z-50 border-t border-yellow-300">
             <nav className="flex flex-col px-4 py-6 space-y-4">
               <button 
-                onClick={() => handleNavigationClick(() => onDashboardClick())}
+                onClick={() => handleNavigationClick(onPricePlansClick)}
                 className="hover:opacity-70 transition-opacity py-2 border-b border-yellow-300 last:border-b-0 text-left font-medium text-gray-800"
               >
-                Exercise
+                Price Plans
               </button>
               
               <button 
