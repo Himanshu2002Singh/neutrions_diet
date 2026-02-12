@@ -188,7 +188,7 @@ export function Health_Profile({ initialData = {}, onProfileUpdate }: Health_Pro
       if (userId) {
         try {
           const token = localStorage.getItem('neutrion_token');
-          const response = await fetch(`http://localhost:3002/api/health/profile/${userId}`, {
+          const response = await fetch(`https://api.nutreazy.in/api/health/profile/${userId}`, {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json',
@@ -520,141 +520,7 @@ export function Health_Profile({ initialData = {}, onProfileUpdate }: Health_Pro
               </div>
             )}
 
-            {/* Medical Document Upload Section - Only shows when diet is approved */}
-            {dietStatus.status === 'approved' && (
-              <div className="mt-4 pt-4 border-t">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-medium flex items-center gap-2">
-                    <FileText className="w-4 h-4" />
-                    Medical Documents
-                  </h4>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowUploadForm(!showUploadForm)}
-                    className="flex items-center gap-1"
-                  >
-                    {showUploadForm ? (
-                      <>
-                        <X className="w-4 h-4" />
-                        Cancel
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-4 h-4" />
-                        Upload Document
-                      </>
-                    )}
-                  </Button>
-                </div>
 
-                {/* Upload Form */}
-                {showUploadForm && (
-                  <div className="bg-gray-50 rounded-lg p-4 space-y-3 mb-4">
-                    <div>
-                      <Label className="text-sm">Document Type</Label>
-                      <Select value={uploadDocumentType} onValueChange={setUploadDocumentType}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="lab_report">Lab Report</SelectItem>
-                          <SelectItem value="prescription">Prescription</SelectItem>
-                          <SelectItem value="medical_certificate">Medical Certificate</SelectItem>
-                          <SelectItem value="diet_history">Diet History</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label className="text-sm">Description (Optional)</Label>
-                      <Input
-                        value={uploadDescription}
-                        onChange={(e) => setUploadDescription(e.target.value)}
-                        placeholder="Brief description of the document"
-                        className="mt-1"
-                      />
-                    </div>
-
-                    <div>
-                      <Label className="text-sm">File (PDF, Image)</Label>
-                      <Input
-                        ref={fileInputRef}
-                        type="file"
-                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                        onChange={handleFileChange}
-                        className="mt-1"
-                      />
-                      {selectedFile && (
-                        <p className="text-sm text-gray-500 mt-1">
-                          Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(2)} KB)
-                        </p>
-                      )}
-                    </div>
-
-                    <Button
-                      onClick={handleUploadDocument}
-                      disabled={!selectedFile || isUploading}
-                      className="w-full bg-[#C5E17A] text-black hover:bg-[#B5D170]"
-                    >
-                      {isUploading ? 'Uploading...' : 'Upload Document'}
-                    </Button>
-                  </div>
-                )}
-
-                {/* Document List */}
-                {medicalDocuments.length > 0 ? (
-                  <div className="space-y-2">
-                    {medicalDocuments.map((doc) => (
-                      <div
-                        key={doc.id}
-                        className="flex items-center justify-between p-3 bg-white border rounded-lg"
-                      >
-                        <div className="flex items-center gap-3">
-                          <FileText className="w-5 h-5 text-gray-400" />
-                          <div>
-                            <p className="font-medium text-sm">{doc.originalName}</p>
-                            <div className="flex items-center gap-2 text-xs text-gray-500">
-                              <span className="bg-gray-100 px-2 py-0.5 rounded">
-                                {getDocumentTypeLabel(doc.documentType)}
-                              </span>
-                              <span>•</span>
-                              <span>{new Date(doc.createdAt).toLocaleDateString()}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDownloadDocument(doc.id)}
-                            title="Download"
-                          >
-                            <Download className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteDocument(doc.id)}
-                            title="Delete"
-                            className="text-red-500 hover:text-red-700"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  showUploadForm ? null : (
-                    <p className="text-sm text-gray-500 text-center py-4">
-                      No medical documents uploaded yet. Upload your lab reports, prescriptions, or medical certificates.
-                    </p>
-                  )
-                )}
-              </div>
-            )}
           </CardContent>
         </Card>
       )}
@@ -794,6 +660,155 @@ export function Health_Profile({ initialData = {}, onProfileUpdate }: Health_Pro
               </div>
             </div>
           </div>
+
+          {/* Medical Documents Section */}
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="w-6 h-6 text-[#C5E17A]" />
+                Medical Documents
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {dietStatus?.profileFilled ? (
+                <>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-gray-600">
+                      Upload your lab reports, prescriptions, or medical certificates.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowUploadForm(!showUploadForm)}
+                      className="flex items-center gap-1"
+                    >
+                      {showUploadForm ? (
+                        <>
+                          <X className="w-4 h-4" />
+                          Cancel
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-4 h-4" />
+                          Upload Document
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {/* Upload Form */}
+                  {showUploadForm && (
+                    <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                      <div>
+                        <Label className="text-sm">Document Type</Label>
+                        <Select value={uploadDocumentType} onValueChange={setUploadDocumentType}>
+                          <SelectTrigger className="mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="lab_report">Lab Report</SelectItem>
+                            <SelectItem value="prescription">Prescription</SelectItem>
+                            <SelectItem value="medical_certificate">Medical Certificate</SelectItem>
+                            <SelectItem value="diet_history">Diet History</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label className="text-sm">Description (Optional)</Label>
+                        <Input
+                          value={uploadDescription}
+                          onChange={(e) => setUploadDescription(e.target.value)}
+                          placeholder="Brief description of the document"
+                          className="mt-1"
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-sm">File (PDF, Image)</Label>
+                        <Input
+                          ref={fileInputRef}
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                          onChange={handleFileChange}
+                          className="mt-1"
+                        />
+                        {selectedFile && (
+                          <p className="text-sm text-gray-500 mt-1">
+                            Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(2)} KB)
+                          </p>
+                        )}
+                      </div>
+
+                      <Button
+                        onClick={handleUploadDocument}
+                        disabled={!selectedFile || isUploading}
+                        className="w-full bg-[#C5E17A] text-black hover:bg-[#B5D170]"
+                      >
+                        {isUploading ? 'Uploading...' : 'Upload Document'}
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Document List */}
+                  {medicalDocuments.length > 0 ? (
+                    <div className="space-y-2">
+                      {medicalDocuments.map((doc) => (
+                        <div
+                          key={doc.id}
+                          className="flex items-center justify-between p-3 bg-white border rounded-lg"
+                        >
+                          <div className="flex items-center gap-3">
+                            <FileText className="w-5 h-5 text-gray-400" />
+                            <div>
+                              <p className="font-medium text-sm">{doc.originalName}</p>
+                              <div className="flex items-center gap-2 text-xs text-gray-500">
+                                <span className="bg-gray-100 px-2 py-0.5 rounded">
+                                  {getDocumentTypeLabel(doc.documentType)}
+                                </span>
+                                <span>•</span>
+                                <span>{new Date(doc.createdAt).toLocaleDateString()}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDownloadDocument(doc.id)}
+                              title="Download"
+                            >
+                              <Download className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteDocument(doc.id)}
+                              title="Delete"
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    !showUploadForm && (
+                      <p className="text-sm text-gray-500 text-center py-4">
+                        No medical documents uploaded yet.
+                      </p>
+                    )
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-gray-500 text-center py-4">
+                  Please fill your health profile first to upload medical documents.
+                </p>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Action Buttons */}
           <div className="flex gap-3">
