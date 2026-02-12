@@ -47,7 +47,7 @@ export function BenefitsSection() {
         />
         <div className="absolute bottom-4 left-4 bg-white rounded-xl p-3 shadow-lg">
           <div className="text-sm font-semibold">Real Results</div>
-          <div className="text-xs text-gray-600">AI-Powered Insights</div>
+          {/* <div className="text-xs text-gray-600">AI-Powered Insights</div> */}
         </div>
       </div>
       <div className="order-1 lg:order-2">
@@ -92,9 +92,9 @@ export function BenefitsSection() {
             </div>
           ))}
         </div>
-        <button className="mt-6 bg-[#FF6B4A] text-white px-6 py-3 rounded-lg hover:opacity-90 transition-opacity">
+        {/* <button className="mt-6 bg-[#FF6B4A] text-white px-6 py-3 rounded-lg hover:opacity-90 transition-opacity">
           Start Your Transformation
-        </button>
+        </button> */}
       </div>
     </section>
   );

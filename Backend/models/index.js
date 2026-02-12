@@ -15,6 +15,7 @@ const ChatMessage = require('./ChatMessage');
 const Task = require('./Task');
 const DoctorTask = require('./DoctorTask');
 const PricePlan = require('./PricePlan');
+const MedicalDocument = require('./MedicalDocument');
 
 // Define associations
 User.hasMany(HealthProfile, { foreignKey: 'userId', as: 'healthProfiles' });
@@ -113,6 +114,14 @@ Admin.hasMany(DoctorTask, { foreignKey: 'doctorId', as: 'taskAssignments' });
 Admin.hasMany(DoctorTask, { foreignKey: 'doctorId', as: 'doctorTasks' });
 DoctorTask.belongsTo(Admin, { foreignKey: 'doctorId', as: 'assignedDoctor' });
 
+// ============================================
+// MedicalDocument Associations
+// ============================================
+
+// Medical documents belong to a user
+User.hasMany(MedicalDocument, { foreignKey: 'userId', as: 'medicalDocuments' });
+MedicalDocument.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
 module.exports = {
   sequelize,
   User,
@@ -128,5 +137,6 @@ module.exports = {
   ChatMessage,
   Task,
   DoctorTask,
-  PricePlan
+  PricePlan,
+  MedicalDocument
 };

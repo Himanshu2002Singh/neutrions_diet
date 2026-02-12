@@ -159,9 +159,10 @@ export default function App() {
           onDashboardClick={() => navigate('/dashboard')}
         />
         <div className="space-y-8 lg:space-y-12 pb-8 lg:pb-12">
-          <HeroSection 
+<HeroSection 
             onHealthProfileComplete={handleHeroDietGenerate}
             onBookDietitian={handleBookDietitian}
+            onGenerateDietClick={() => setShowLoginModal(true)}
           />
           <div id="menu-section">
             <MenuSection />

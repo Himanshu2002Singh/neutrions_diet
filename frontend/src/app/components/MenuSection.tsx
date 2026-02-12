@@ -117,7 +117,7 @@ export function MenuSection() {
 
   if (loading) {
     return (
-      <section className="mb-12">
+      <section className="mb-12" id='price-plans'>
         <div className="flex flex-col lg:flex-row lg:justify-between lg:items-end mb-8 gap-4">
           <div>
             <p className="text-sm mb-2 opacity-70">Complete Health Solution</p>
@@ -288,7 +288,7 @@ export function MenuSection() {
             <span className="text-[#FF6B4A]">Plans</span>
           </h2>
         </div>
-        <div className="text-left lg:text-right">
+        {/* <div className="text-left lg:text-right">
           <p className="text-sm mb-3 opacity-70">
             AI-powered nutrition with professional support
             <br />
@@ -298,7 +298,7 @@ export function MenuSection() {
             Get Started Now
             <ArrowRight className="w-5 h-5" />
           </button>
-        </div>
+        </div> */}
       </div>
       
       {error && (

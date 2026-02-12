@@ -957,6 +957,147 @@ class ApiService {
       body: JSON.stringify({ planIds }),
     });
   }
+
+  // ============ Diet Status API ============
+
+  // Get diet status for a user (for health profile page)
+  async getDietStatus(userId: number): Promise<{
+    success: boolean;
+    data: {
+      userId: number;
+      profileFilled: boolean;
+      assigned: boolean;
+      dietPlanExists: boolean;
+      status: 'not_filled' | 'pending_assignment' | 'pending_approval' | 'approved';
+      statusText: string;
+      statusColor: string;
+      assignedDietician: {
+        id: number;
+        name: string;
+        email: string;
+        phone: string | null;
+        role: string;
+        assignedAt: string | null;
+      } | null;
+      healthProfile: {
+        age: number;
+        weight: number;
+        height: number;
+        gender: string;
+        activityLevel: string;
+      } | null;
+    };
+  }> {
+    return this.makeRequest(`/api/health/diet-status/${userId}`);
+  }
+
+  // ============ Medical Documents API ============
+
+  // Upload a medical document
+  async uploadMedicalDocument(userId: number, file: File, documentType: string, description?: string): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      id: number;
+      userId: number;
+      fileName: string;
+      originalName: string;
+      documentType: string;
+      description: string | null;
+      createdAt: string;
+    };
+  }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('userId', userId.toString());
+    formData.append('documentType', documentType);
+    if (description) {
+      formData.append('description', description);
+    }
+
+    // Get the auth token
+    const token = localStorage.getItem('neutrion-auth-token');
+
+    const response = await fetch(`${API_BASE_URL}/api/health/medical-documents/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
+      },
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to upload medical document');
+    }
+
+    return data;
+  }
+
+  // Get all medical documents for a user
+  async getMedicalDocuments(userId: number): Promise<{
+    success: boolean;
+    data: Array<{
+      id: number;
+      userId: number;
+      fileName: string;
+      originalName: string;
+      documentType: string;
+      description: string | null;
+      createdAt: string;
+    }>;
+  }> {
+    return this.makeRequest(`/api/health/medical-documents/${userId}`);
+  }
+
+  // Download a medical document
+  async downloadMedicalDocument(fileId: number): Promise<void> {
+    const token = localStorage.getItem('neutrion-auth-token');
+    
+    const response = await fetch(`${API_BASE_URL}/api/health/medical-documents/download/${fileId}`, {
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
+      },
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.message || 'Failed to download medical document');
+    }
+
+    // Trigger download
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    
+    // Try to get filename from content-disposition header
+    const contentDisposition = response.headers.get('content-disposition');
+    let filename = 'document';
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+      if (filenameMatch) {
+        filename = filenameMatch[1];
+      }
+    }
+    
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  }
+
+  // Delete a medical document
+  async deleteMedicalDocument(fileId: number): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    return this.makeRequest(`/api/health/medical-documents/${fileId}`, {
+      method: 'DELETE',
+    });
+  }
 }
 
 // Create a singleton instance

@@ -475,5 +475,58 @@ router.get('/doctor/progress-summary', authenticateAdmin, healthController.getDo
  */
 router.get('/sidebar-diet-summary/:userId', validateUserId, healthController.getSidebarDietSummary);
 
+// ============================================
+// MEDICAL DOCUMENT ROUTES
+// ============================================
+
+/**
+ * @route POST /api/health/medical-documents/upload
+ * @desc Upload a medical document for a user
+ * @access User
+ */
+router.post('/medical-documents/upload', 
+  upload.single('file'),
+  body('userId')
+    .isInt({ min: 1 })
+    .withMessage('User ID must be a valid integer'),
+  body('documentType')
+    .optional()
+    .isIn(['lab_report', 'prescription', 'medical_certificate', 'diet_history', 'other'])
+    .withMessage('Invalid document type'),
+  healthController.uploadMedicalDocument
+);
+
+/**
+ * @route GET /api/health/medical-documents/:userId
+ * @desc Get all medical documents for a user
+ * @access User
+ */
+router.get('/medical-documents/:userId', validateUserId, healthController.getMedicalDocuments);
+
+/**
+ * @route GET /api/health/medical-documents/download/:fileId
+ * @desc Download a medical document
+ * @access User
+ */
+router.get('/medical-documents/download/:fileId', healthController.downloadMedicalDocument);
+
+/**
+ * @route DELETE /api/health/medical-documents/:fileId
+ * @desc Delete a medical document (soft delete)
+ * @access User
+ */
+router.delete('/medical-documents/:fileId', healthController.deleteMedicalDocument);
+
+// ============================================
+// DIET STATUS ROUTE
+// ============================================
+
+/**
+ * @route GET /api/health/diet-status/:userId
+ * @desc Get diet status for a user (for health profile page)
+ * @access User
+ */
+router.get('/diet-status/:userId', validateUserId, healthController.getDietStatus);
+
 module.exports = router;
 

@@ -3036,6 +3036,340 @@ class HealthController {
       });
     }
   }
+
+  // ============================================
+  // MEDICAL DOCUMENTS ENDPOINTS
+  // ============================================
+
+  /**
+   * Upload a medical document for a user
+   * POST /api/health/medical-documents/upload
+   */
+  async uploadMedicalDocument(req, res) {
+    try {
+      // Check if file was uploaded
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          message: 'No file uploaded. Please upload a PDF, image, or document file.'
+        });
+      }
+
+      const { userId, documentType, description } = req.body;
+
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          message: 'User ID is required'
+        });
+      }
+
+      // Validate document type
+      const validTypes = ['lab_report', 'prescription', 'medical_certificate', 'diet_history', 'other'];
+      if (documentType && !validTypes.includes(documentType)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid document type. Must be one of: ' + validTypes.join(', ')
+        });
+      }
+
+      // Import the MedicalDocument model
+      const { MedicalDocument } = require('../models');
+
+      // Save file info to database
+      const medicalDoc = await MedicalDocument.create({
+        userId: parseInt(userId),
+        fileName: req.file.filename,
+        originalName: req.file.originalname,
+        filePath: req.file.path,
+        fileSize: req.file.size,
+        mimeType: req.file.mimetype,
+        documentType: documentType || 'other',
+        description: description || null
+      });
+
+      res.status(201).json({
+        success: true,
+        message: 'Medical document uploaded successfully',
+        data: {
+          id: medicalDoc.id,
+          userId: medicalDoc.userId,
+          fileName: medicalDoc.fileName,
+          originalName: medicalDoc.originalName,
+          documentType: medicalDoc.documentType,
+          description: medicalDoc.description,
+          createdAt: medicalDoc.createdAt
+        }
+      });
+
+    } catch (error) {
+      console.error('Upload medical document error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to upload medical document',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Get all medical documents for a user
+   * GET /api/health/medical-documents/:userId
+   */
+  async getMedicalDocuments(req, res) {
+    try {
+      const { userId } = req.params;
+
+      // Import the MedicalDocument model
+      const { MedicalDocument } = require('../models');
+
+      // Get all medical documents for the user, ordered by creation date (newest first)
+      const documents = await MedicalDocument.findAll({
+        where: {
+          userId: parseInt(userId),
+          isActive: true
+        },
+        order: [['createdAt', 'DESC']]
+      });
+
+      res.status(200).json({
+        success: true,
+        data: documents
+      });
+
+    } catch (error) {
+      console.error('Get medical documents error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to get medical documents',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Download a medical document
+   * GET /api/health/medical-documents/download/:fileId
+   */
+  async downloadMedicalDocument(req, res) {
+    try {
+      const { fileId } = req.params;
+
+      // Import the MedicalDocument model
+      const { MedicalDocument } = require('../models');
+
+      // Find the document
+      const document = await MedicalDocument.findByPk(parseInt(fileId));
+
+      if (!document) {
+        return res.status(404).json({
+          success: false,
+          message: 'Medical document not found'
+        });
+      }
+
+      if (!document.isActive) {
+        return res.status(404).json({
+          success: false,
+          message: 'Medical document has been deleted'
+        });
+      }
+
+      // Check if file exists on disk
+      const fs = require('fs');
+      if (!fs.existsSync(document.filePath)) {
+        return res.status(404).json({
+          success: false,
+          message: 'File not found on server'
+        });
+      }
+
+      // Send the file
+      res.download(document.filePath, document.originalName);
+
+    } catch (error) {
+      console.error('Download medical document error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to download medical document',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Delete a medical document (soft delete)
+   * DELETE /api/health/medical-documents/:fileId
+   */
+  async deleteMedicalDocument(req, res) {
+    try {
+      const { fileId } = req.params;
+
+      // Import the MedicalDocument model
+      const { MedicalDocument } = require('../models');
+
+      // Find the document
+      const document = await MedicalDocument.findByPk(parseInt(fileId));
+
+      if (!document) {
+        return res.status(404).json({
+          success: false,
+          message: 'Medical document not found'
+        });
+      }
+
+      // Soft delete - set isActive to false
+      document.isActive = false;
+      await document.save();
+
+      // Optionally delete the file from disk
+      const fs = require('fs');
+      if (fs.existsSync(document.filePath)) {
+        try {
+          fs.unlinkSync(document.filePath);
+        } catch (err) {
+          console.warn('Could not delete file from disk:', err);
+        }
+      }
+
+      res.status(200).json({
+        success: true,
+        message: 'Medical document deleted successfully'
+      });
+
+    } catch (error) {
+      console.error('Delete medical document error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to delete medical document',
+        error: error.message
+      });
+    }
+  }
+
+  // ============================================
+  // DIET STATUS ENDPOINT
+  // ============================================
+
+  /**
+   * Get diet status for a user (for health profile page)
+   * GET /api/health/diet-status/:userId
+   * 
+   * Returns:
+   * - profileFilled: boolean (whether health profile is filled)
+   * - assigned: boolean (whether dietitian is assigned)
+   * - dietPlanExists: boolean (whether diet plan exists)
+   * - status: 'not_filled' | 'pending_assignment' | 'pending_approval' | 'approved'
+   * - assignedDietician: info about assigned dietitian (if any)
+   */
+  async getDietStatus(req, res) {
+    try {
+      const { userId } = req.params;
+      const userIdInt = parseInt(userId);
+
+      const { User, HealthProfile, DietPlan } = require('../models');
+
+      // 1. Check if health profile is filled
+      const healthProfile = await HealthProfile.findOne({
+        where: {
+          userId: userIdInt,
+          isCurrent: true
+        }
+      });
+
+      const profileFilled = !!healthProfile;
+
+      // 2. Check if dietitian is assigned
+      const user = await User.findByPk(userIdInt, {
+        attributes: ['id', 'firstName', 'lastName', 'email', 'assignedDieticianId', 'assignedAt']
+      });
+
+      const assignedDieticianId = user?.assignedDieticianId || null;
+      const assigned = !!assignedDieticianId;
+
+      // 3. Get assigned dietitian info
+      let assignedDietician = null;
+      if (assignedDieticianId) {
+        const dietician = await User.findByPk(assignedDieticianId, {
+          attributes: ['id', 'firstName', 'lastName', 'email', 'phone', 'role']
+        });
+        
+        if (dietician) {
+          assignedDietician = {
+            id: dietician.id,
+            name: `${dietician.firstName} ${dietician.lastName}`,
+            email: dietician.email,
+            phone: dietician.phone || null,
+            role: dietician.role,
+            assignedAt: user.assignedAt
+          };
+        }
+      }
+
+      // 4. Check if diet plan exists
+      const dietPlan = await DietPlan.findOne({
+        where: {
+          userId: userIdInt,
+          isCurrent: true,
+          isActive: true
+        }
+      });
+
+      const dietPlanExists = !!dietPlan;
+
+      // 5. Determine overall status
+      let status;
+      let statusText;
+      let statusColor;
+
+      if (!profileFilled) {
+        status = 'not_filled';
+        statusText = 'Please fill your health profile';
+        statusColor = 'yellow';
+      } else if (!assigned) {
+        status = 'pending_assignment';
+        statusText = 'Waiting for dietitian assignment';
+        statusColor = 'orange';
+      } else if (!dietPlanExists) {
+        status = 'pending_approval';
+        statusText = 'Diet plan being prepared by your dietitian';
+        statusColor = 'blue';
+      } else {
+        status = 'approved';
+        statusText = 'Your diet plan is ready!';
+        statusColor = 'green';
+      }
+
+      res.status(200).json({
+        success: true,
+        data: {
+          userId: userIdInt,
+          profileFilled,
+          assigned,
+          dietPlanExists,
+          status,
+          statusText,
+          statusColor,
+          assignedDietician,
+          healthProfile: profileFilled ? {
+            age: healthProfile.age,
+            weight: parseFloat(healthProfile.weight),
+            height: parseFloat(healthProfile.height),
+            gender: healthProfile.gender,
+            activityLevel: healthProfile.activityLevel
+          } : null
+        }
+      });
+
+    } catch (error) {
+      console.error('Get diet status error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to get diet status',
+        error: error.message
+      });
+    }
+  }
 }
 
 module.exports = new HealthController();

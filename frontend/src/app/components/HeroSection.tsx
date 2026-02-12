@@ -3,9 +3,7 @@ import { Star, ArrowRight, Plus } from 'lucide-react';
 import { HealthFormModal } from './HealthFormModal';
 
 
-
-
-
+import { useNavigate } from "react-router-dom";
 
 
 const heroImage = '/images/doctorImage.jpg';
@@ -31,21 +29,14 @@ interface HeroSectionProps {
     goals: string;
     bmiCalculation: any;
   }) => void;
+  onGenerateDietClick?: () => void;
 }
 
-export function HeroSection({ onHealthProfileComplete, onBookDietitian }: HeroSectionProps) {
+export function HeroSection({ onHealthProfileComplete, onBookDietitian, onGenerateDietClick }: HeroSectionProps) {
   const [showHealthForm, setShowHealthForm] = useState(false);
   const [actionType, setActionType] = useState<'diet' | 'dietitian'>('diet');
+    const navigate = useNavigate();
 
-  const handleGenerateDiet = () => {
-    setActionType('diet');
-    setShowHealthForm(true);
-  };
-
-  const handleBookDietitian = () => {
-    setActionType('dietitian');
-    setShowHealthForm(true);
-  };
 
   const handleHealthFormSubmit = (data: any) => {
     setShowHealthForm(false);
@@ -75,20 +66,15 @@ export function HeroSection({ onHealthProfileComplete, onBookDietitian }: HeroSe
             Get personalized diet plans based on your medical conditions, body type & goals. Track progress, chat with AI coach Ria, and get 1-on-1 dietitian support.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 lg:gap-4 mb-8 lg:mb-12">
-            <button 
-              onClick={handleGenerateDiet}
-              className="bg-[#FF6B4A] text-white px-4 lg:px-6 py-2 lg:py-3 rounded-lg flex items-center gap-2 hover:opacity-90 transition-opacity text-sm lg:text-base"
-            >
-              Generate Meal Plan
-              <ArrowRight className="w-4 h-4 lg:w-5 lg:h-5" />
-            </button>
-            <button 
-              onClick={handleBookDietitian}
-              className="bg-white border-2 border-gray-300 px-4 lg:px-6 py-2 lg:py-3 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors text-sm lg:text-base"
-            >
-              Book a Dietitian
-              <ArrowRight className="w-4 h-4 lg:w-5 lg:h-5" />
-            </button>
+         
+<button
+      onClick={onGenerateDietClick}
+      className="bg-[#FF6B4A] text-white px-4 lg:px-6 py-2 lg:py-3 rounded-lg flex items-center gap-2 hover:opacity-90 transition-opacity text-sm lg:text-base"
+    >
+      Generate Diet
+      <ArrowRight className="w-4 h-4 lg:w-5 lg:h-5" />
+    </button>
+          
           </div>
           <div className="flex items-end gap-2 lg:gap-3">
             <div className="text-3xl lg:text-5xl font-bold">4.9</div>
